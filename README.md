@@ -3,7 +3,7 @@
 ### xmfa_block_sort.pl
 Description:
 
-    sorts XMFA files by block (LCB)
+    sort XMFA files by block (LCB)
 
 Usage:
 

@@ -249,7 +249,7 @@ xmfa_block_sort.pl [options]
 
 =head1 DESCRIPTION
 
-xmfa_block_sort.pl sorts XMFA files by block (LCB)
+sort XMFA files by block (LCB)
 
 =head1 AUTHOR
 
