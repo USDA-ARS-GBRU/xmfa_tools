@@ -15,6 +15,8 @@ my %blocks = ();
 my %ref_block_starts = ();
 my %ref_block_stops = ();
 my %block_ref_pos = ();
+my @block_order = ();
+my %unplaced_blocks = ();
 
 parse_args();
 parse_xmfa_header();
@@ -25,50 +27,71 @@ exit(0);
 
 
 sub sort_blocks {
-	my %proc_blocks = ();
-	my @block_order = ();
+	foreach my $block_id (keys %blocks) {
+		$unplaced_blocks{$block_id}++;
+	}
 
 	foreach my $seq_id (@sort_order) {
-		foreach my $block_start (sort { $a <=> $b } keys %{$ref_block_starts{$seq_id}}) {
-			my $block_id = $ref_block_starts{$seq_id}{$block_start};
+		if ($seq_id == $sort_order[0]) {
+			foreach my $block_start (sort { $a <=> $b } keys %{$ref_block_starts{$seq_id}}) {
+				my $block_id = $ref_block_starts{$seq_id}{$block_start};
 
-			if (exists($proc_blocks{$block_id})) {
-				next();
-			}
-
-			if (! @block_order) {
-				push(@block_order, $block_id);
-				$proc_blocks{$block_id}++;
-
-				next();
-			}
-
-			my $last_seq_id_index;
-
-			foreach my $index (0..$#block_order) {
-				my $index_block_id = $block_order[$index];
-
-				if (! exists($block_ref_pos{$index_block_id}{$seq_id}{'start'})) {
+				if (! exists($unplaced_blocks{$block_id})) {
 					next();
 				}
 
-				my $index_seq_start = $block_ref_pos{$index_block_id}{$seq_id}{'start'};
+				if (! @block_order) {
+					push(@block_order, $block_id);
+					delete($unplaced_blocks{$block_id});
 
-				$last_seq_id_index = $index;
+					next();
+				}
 
-				if ($block_start < $index_seq_start) {
-					splice(@block_order, $index, 0, $block_id);
-					$proc_blocks{$block_id}++;
+				my $last_seq_id_index;
 
-					last();
+				foreach my $index (0..$#block_order) {
+					my $index_block_id = $block_order[$index];
+
+					if (! exists($block_ref_pos{$index_block_id}{$seq_id}{'start'})) {
+						next();
+					}
+
+					my $index_seq_start = $block_ref_pos{$index_block_id}{$seq_id}{'start'};
+
+					$last_seq_id_index = $index;
+
+					if ($block_start < $index_seq_start) {
+						splice(@block_order, $index, 0, $block_id);
+						delete($unplaced_blocks{$block_id});
+
+						last();
+					}
+				}
+
+				if (exists($unplaced_blocks{$block_id}) && defined($last_seq_id_index)) {
+					splice(@block_order, $last_seq_id_index + 1, 0, $block_id);
+					delete($unplaced_blocks{$block_id});
+
+					next();
 				}
 			}
+		}
 
-			if (! exists($proc_blocks{$block_id}) && defined($last_seq_id_index)) {
-				splice(@block_order, $last_seq_id_index + 1, 0, $block_id);
-				$proc_blocks{$block_id}++;
+		else {
+			my @static_block_order = @block_order;
 
-				next();
+			foreach my $block_id (@static_block_order) {
+				my $block_order_index = get_block_order_index($block_id);
+
+				if (defined($block_order_index)) {
+					extend_block($block_order_index, $block_id, $seq_id, 'left');
+				}
+
+				$block_order_index = get_block_order_index($block_id);
+
+				if (defined($block_order_index)) {
+					extend_block($block_order_index, $block_id, $seq_id, 'right');
+				}
 			}
 		}
 	}
@@ -78,6 +101,75 @@ sub sort_blocks {
 	}
 
 	return(0);
+}
+
+
+sub extend_block {
+	my $block_order_index = shift();
+	my $block_id = shift();
+	my $seq_id = shift();
+	my $dir = shift();
+
+	if (! defined($block_order_index) || ! defined($block_id) || ! defined($seq_id) || ! defined($dir)) {
+		return(0);
+	}
+
+	my $start = $block_ref_pos{$block_id}{$seq_id}{'start'};
+	my $stop = $block_ref_pos{$block_id}{$seq_id}{'stop'};
+
+	if (! defined($start) || ! defined($stop)) {
+		return(0);
+	}
+
+	foreach my $unplaced_block_id (keys %unplaced_blocks) {
+		my $unplaced_start = $block_ref_pos{$unplaced_block_id}{$seq_id}{'start'};
+		my $unplaced_stop = $block_ref_pos{$unplaced_block_id}{$seq_id}{'stop'};
+
+		if (! defined($unplaced_start) || ! defined($unplaced_stop)) {
+			next();
+		}
+
+		my $match = 0;
+
+		if ($dir eq 'left') {
+			if ($unplaced_stop == $start - 1) {
+				splice(@block_order, $block_order_index, 0, $unplaced_block_id);
+				delete($unplaced_blocks{$unplaced_block_id});
+				$match = 1;
+
+				extend_block($block_order_index, $unplaced_block_id, $seq_id, $dir);
+			}
+		}
+
+		elsif ($dir eq 'right') {
+			if ($unplaced_start == $stop + 1) {
+				splice(@block_order, $block_order_index + 1, 0, $unplaced_block_id);
+				delete($unplaced_blocks{$unplaced_block_id});
+				$match = 1;
+
+				extend_block($block_order_index + 1, $unplaced_block_id, $seq_id, $dir);
+			}
+		}
+
+		if ($match == 1) {
+			last();
+		}
+	}
+
+	return(0);
+}
+
+
+sub get_block_order_index {
+	my $block_id = shift();
+
+	foreach my $index (0..$#block_order) {
+		if ($block_order[$index] == $block_id) {
+			return($index);
+		}
+	}
+
+	return(undef);
 }
 
 
