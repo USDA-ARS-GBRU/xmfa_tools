@@ -5,6 +5,8 @@ Description:
 
     sort XMFA files by block (LCB)
 
+	This is accomplished by defining a multi-pass sort using sequence IDs found in the XMFA header. The primary sort sequence ID is used to establish a backbone of blocks. Additional sorting passes recursively extend the backbone blocks using the non-primary sequence ID block positions.
+
 Usage:
 
     xmfa_block_sort.pl [options]
