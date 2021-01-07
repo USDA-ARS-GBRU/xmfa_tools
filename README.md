@@ -32,13 +32,17 @@ Options:
 
      --xmfasort    output sorted xmfa file
 
-     -o --outdir   output fasta directory (default: current working directory)
+     -o --outdir   output fasta directory
+                     default: current working directory
 
-     --postfix     output fasta file postfix (default: ".sort.fa")
+     --postfix     output fasta file postfix
+                     default: ".sort.fa"
 
-     -l --linker   output fasta block sequence linker (default: no linker)
+     -l --linker   output fasta block sequence linker
+                     default: no linker
                      example: -l "NNNNNNNNNN"
 
-     -n --null     null record value (default: "NA")
+     -n --null     null record value
+                     default: "NA"
 
      -h --help     display help menu
