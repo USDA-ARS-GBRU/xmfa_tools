@@ -142,6 +142,7 @@ sub print_blocks {
 			my $xmfa_stop = $null_record;
 			my $xmfa_strand = $null_record;
 			my $seq;
+			my $seq_len = 0;
 
 			if (exists($block_seqs{$block_id}{$seq_id})) {
 				$xmfa_start = $block_ref_pos{$block_id}{$seq_id}{'start'};
@@ -152,6 +153,12 @@ sub print_blocks {
 					my $tmp = $xmfa_start;
 					$xmfa_start = $xmfa_stop;
 					$xmfa_stop = $tmp;
+				}
+
+				$seq_len = abs($xmfa_start - $xmfa_stop) + 1;
+
+				if ($xmfa_start == 0 && $xmfa_stop == 0) {
+					$seq_len = 0;
 				}
 
 				$seq = $block_seqs{$block_id}{$seq_id};
@@ -168,10 +175,14 @@ sub print_blocks {
 				$fasta_pos{$seq_id} = 0;
 			}
 
-			my $fasta_start = $fasta_pos{$seq_id} + 1;
-			my $fasta_stop = $fasta_start + $block_len - 1;
+			my $fasta_start = $null_record;
+			my $fasta_stop = $null_record;
 
-			$fasta_pos{$seq_id} = $fasta_stop;
+			if ($seq_len > 0) {
+				$fasta_start = $fasta_pos{$seq_id} + 1;
+				$fasta_stop = $fasta_start + $seq_len - 1;
+				$fasta_pos{$seq_id} = $fasta_stop;
+			}
 
 			if (defined($fasta_linker)) {
 				$fasta_seq{$seq_id} .= "$fasta_linker";
