@@ -12,6 +12,13 @@ Description:
     Additional sorting passes recursively extend the backbone
     blocks using the non-primary sequence ID block positions.
 
+    Blocks are oriented so that the primary sort sequence is
+    always on the forward strand. Blocks that do not contain
+    a primary sort alignment will be oriented based on the
+    sequence alignment of highest sort priority. When the
+    highest sort priority sequence alignment is on the reverse
+    strand, all block sequences are reverse complemented.
+
 Usage:
 
     xmfa_block_sort.pl -x xmfa.file [options]

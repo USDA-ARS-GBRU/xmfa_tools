@@ -32,6 +32,7 @@ parse_args();
 parse_xmfa_header();
 my ($coords_fh, $sorted_xmfa_fh) = open_fhs();
 parse_blocks();
+orient_blocks();
 sort_blocks();
 print_blocks();
 
@@ -148,13 +149,6 @@ sub print_blocks {
 				$xmfa_start = $block_ref_pos{$block_id}{$seq_id}{'start'};
 				$xmfa_stop = $block_ref_pos{$block_id}{$seq_id}{'stop'};
 				$xmfa_strand = $block_ref_pos{$block_id}{$seq_id}{'strand'};
-
-				if ($xmfa_stop < $xmfa_start) {
-					my $tmp = $xmfa_start;
-					$xmfa_start = $xmfa_stop;
-					$xmfa_stop = $tmp;
-				}
-
 				$seq_len = abs($xmfa_start - $xmfa_stop) + 1;
 
 				if ($xmfa_start == 0 && $xmfa_stop == 0) {
@@ -196,8 +190,8 @@ sub print_blocks {
 
 		if (defined($sorted_xmfa_file)) {
 			foreach my $block_seq_index (sort { $a <=> $b } keys %{$block_seq_order{$block_id}}) {
-				my $seq_id = $block_seq_order{$block_id}{$block_seq_index}{'seq_id'};
-				my $header = $block_seq_order{$block_id}{$block_seq_index}{'header'};
+				my $seq_id = $block_seq_order{$block_id}{$block_seq_index};
+				my $header = $block_ref_pos{$block_id}{$seq_id}{'header'};
 				my $seq = $block_seqs{$block_id}{$seq_id};
 
 				print($sorted_xmfa_fh "$header\n"."$seq");
@@ -224,29 +218,6 @@ sub print_blocks {
 		close($fasta_fh);
 	}
 
-
-	return(0);
-}
-
-
-sub proc_block_seq {
-	my $fasta_seq_ref = shift();
-	my $fasta_pos_ref = shift();
-	my $seq_id = shift();
-	my $start = shift();
-	my $stop = shift();
-	my $strand = shift();
-
-	my $seq_len = length(abs($start - $stop)) + 1;
-
-	if (! defined($$fasta_pos_ref{$seq_id})) {
-		$$fasta_pos_ref{$seq_id} = 0;
-	}
-
-
-	if (defined($fasta_linker)) {
-		$$fasta_seq_ref{$seq_id} .= "$fasta_linker";
-	}
 
 	return(0);
 }
@@ -349,12 +320,6 @@ sub parse_blocks {
 			($seq_id, $pos) = split(':', $ref_pos);
 			my ($start, $stop) = split('-', $pos);
 
-			if (defined($start) && defined($stop) && $start > $stop) {
-				my $tmp = $start;
-				$start = $stop;
-				$stop = $start;
-			}
-
 			if (defined($seq_id) && defined($start) && defined($stop) && defined($strand)) {
 				$block_seq_count++;
 
@@ -363,8 +328,8 @@ sub parse_blocks {
 				$block_ref_pos{$block_id}{$seq_id}{'start'} = $start;
 				$block_ref_pos{$block_id}{$seq_id}{'stop'} = $stop;
 				$block_ref_pos{$block_id}{$seq_id}{'strand'} = $strand;
-				$block_seq_order{$block_id}{$block_seq_count}{'seq_id'} = $seq_id;
-				$block_seq_order{$block_id}{$block_seq_count}{'header'} = $line;
+				$block_ref_pos{$block_id}{$seq_id}{'header'} = $line;
+				$block_seq_order{$block_id}{$block_seq_count} = $seq_id;
 
 				$valid_seq = 1;
 			}
@@ -391,6 +356,42 @@ sub parse_blocks {
 	}
 
 	close(XMFA);
+
+	return(0);
+}
+
+
+sub orient_blocks {
+	foreach my $block_id (keys %block_seqs) {
+		foreach my $order_seq_id (@sort_order) {
+			if (exists $block_ref_pos{$block_id}{$order_seq_id}) {
+				if ($block_ref_pos{$block_id}{$order_seq_id}{'strand'} eq '+') {
+					last();
+				}
+
+				foreach my $seq_id (keys %{$block_seqs{$block_id}}) {
+					my $seq = $block_seqs{$block_id}{$seq_id};
+					my $rc_seq = reverse($seq);
+
+					$rc_seq =~ tr/ACGTacgt/TGCAtgca/;
+
+					$block_seqs{$block_id}{$seq_id} = $rc_seq;
+
+					if ($block_ref_pos{$block_id}{$seq_id}{'strand'} eq '+') {
+						$block_ref_pos{$block_id}{$seq_id}{'strand'} = '-';
+						$block_ref_pos{$block_id}{$seq_id}{'header'} =~ s/ + / - /;
+					}
+
+					else {
+						$block_ref_pos{$block_id}{$seq_id}{'strand'} = '+';
+						$block_ref_pos{$block_id}{$seq_id}{'header'} =~ s/ - / + /;
+					}
+				}
+
+				last();
+			}
+		}
+	}
 
 	return(0);
 }
