@@ -18,11 +18,12 @@ my $null_record = 'NA';
 my $help;
 
 my %block_seq_order = ();
+my %block_seq_sort_priorities = ();
 my %block_seqs = ();
 my %block_lens = ();
 my %ref_block_starts = ();
 my %ref_block_stops = ();
-my %block_ref_pos = ();
+my %block_seq_info = ();
 my @block_order = ();
 my %unplaced_blocks = ();
 my %seq_id_names = ();
@@ -34,6 +35,7 @@ my ($coords_fh, $sorted_xmfa_fh) = open_fhs();
 parse_blocks();
 orient_blocks();
 sort_blocks();
+orient_adj_inversions();
 print_blocks();
 
 exit(0);
@@ -65,11 +67,11 @@ sub sort_blocks {
 				foreach my $index (0..$#block_order) {
 					my $index_block_id = $block_order[$index];
 
-					if (! exists($block_ref_pos{$index_block_id}{$seq_id}{'start'})) {
+					if (! exists($block_seq_info{$index_block_id}{$seq_id}{'start'})) {
 						next();
 					}
 
-					my $index_seq_start = $block_ref_pos{$index_block_id}{$seq_id}{'start'};
+					my $index_seq_start = $block_seq_info{$index_block_id}{$seq_id}{'start'};
 
 					$last_seq_id_index = $index;
 
@@ -146,10 +148,10 @@ sub print_blocks {
 			my $seq_len = 0;
 
 			if (exists($block_seqs{$block_id}{$seq_id})) {
-				$xmfa_start = $block_ref_pos{$block_id}{$seq_id}{'start'};
-				$xmfa_stop = $block_ref_pos{$block_id}{$seq_id}{'stop'};
-				$xmfa_strand = $block_ref_pos{$block_id}{$seq_id}{'strand'};
-				$seq_len = abs($xmfa_start - $xmfa_stop) + 1;
+				$xmfa_start = $block_seq_info{$block_id}{$seq_id}{'start'};
+				$xmfa_stop = $block_seq_info{$block_id}{$seq_id}{'stop'};
+				$xmfa_strand = $block_seq_info{$block_id}{$seq_id}{'strand'};
+				$seq_len = abs($xmfa_stop - $xmfa_start) + 1;
 
 				if ($xmfa_start == 0 && $xmfa_stop == 0) {
 					$seq_len = 0;
@@ -191,10 +193,12 @@ sub print_blocks {
 		if (defined($sorted_xmfa_file)) {
 			foreach my $block_seq_index (sort { $a <=> $b } keys %{$block_seq_order{$block_id}}) {
 				my $seq_id = $block_seq_order{$block_id}{$block_seq_index};
-				my $header = $block_ref_pos{$block_id}{$seq_id}{'header'};
+				my $header = $block_seq_info{$block_id}{$seq_id}{'header'};
 				my $seq = $block_seqs{$block_id}{$seq_id};
 
-				print($sorted_xmfa_fh "$header\n"."$seq");
+				$seq =~ s/.{80}\K/\n/g;
+
+				print($sorted_xmfa_fh "$header\n$seq\n");
 			}
 
 			print($sorted_xmfa_fh "=\n");
@@ -233,16 +237,16 @@ sub extend_block {
 		return(0);
 	}
 
-	my $start = $block_ref_pos{$block_id}{$seq_id}{'start'};
-	my $stop = $block_ref_pos{$block_id}{$seq_id}{'stop'};
+	my $start = $block_seq_info{$block_id}{$seq_id}{'start'};
+	my $stop = $block_seq_info{$block_id}{$seq_id}{'stop'};
 
 	if (! defined($start) || ! defined($stop)) {
 		return(0);
 	}
 
 	foreach my $unplaced_block_id (keys %unplaced_blocks) {
-		my $unplaced_start = $block_ref_pos{$unplaced_block_id}{$seq_id}{'start'};
-		my $unplaced_stop = $block_ref_pos{$unplaced_block_id}{$seq_id}{'stop'};
+		my $unplaced_start = $block_seq_info{$unplaced_block_id}{$seq_id}{'start'};
+		my $unplaced_stop = $block_seq_info{$unplaced_block_id}{$seq_id}{'stop'};
 
 		if (! defined($unplaced_start) || ! defined($unplaced_stop)) {
 			next();
@@ -325,11 +329,12 @@ sub parse_blocks {
 
 				$ref_block_starts{$seq_id}{$start} = $block_id;
 				$ref_block_stops{$seq_id}{$stop} = $block_id;
-				$block_ref_pos{$block_id}{$seq_id}{'start'} = $start;
-				$block_ref_pos{$block_id}{$seq_id}{'stop'} = $stop;
-				$block_ref_pos{$block_id}{$seq_id}{'strand'} = $strand;
-				$block_ref_pos{$block_id}{$seq_id}{'header'} = $line;
+				$block_seq_info{$block_id}{$seq_id}{'start'} = $start;
+				$block_seq_info{$block_id}{$seq_id}{'stop'} = $stop;
+				$block_seq_info{$block_id}{$seq_id}{'strand'} = $strand;
+				$block_seq_info{$block_id}{$seq_id}{'header'} = $line;
 				$block_seq_order{$block_id}{$block_seq_count} = $seq_id;
+				$block_seq_sort_priorities{$block_id}{$seq_id} = $block_seq_count;
 
 				$valid_seq = 1;
 			}
@@ -350,7 +355,7 @@ sub parse_blocks {
 		else {
 			if ($valid_seq == 1) {
 				$seq .= "$line";
-				$block_seqs{$block_id}{$seq_id} .= "$line\n";
+				$block_seqs{$block_id}{$seq_id} .= "$line";
 			}
 		}
 	}
@@ -364,32 +369,140 @@ sub parse_blocks {
 sub orient_blocks {
 	foreach my $block_id (keys %block_seqs) {
 		foreach my $order_seq_id (@sort_order) {
-			if (exists $block_ref_pos{$block_id}{$order_seq_id}) {
-				if ($block_ref_pos{$block_id}{$order_seq_id}{'strand'} eq '+') {
-					last();
-				}
-
-				foreach my $seq_id (keys %{$block_seqs{$block_id}}) {
-					my $seq = $block_seqs{$block_id}{$seq_id};
-					my $rc_seq = reverse($seq);
-
-					$rc_seq =~ tr/ACGTacgt/TGCAtgca/;
-
-					$block_seqs{$block_id}{$seq_id} = $rc_seq;
-
-					if ($block_ref_pos{$block_id}{$seq_id}{'strand'} eq '+') {
-						$block_ref_pos{$block_id}{$seq_id}{'strand'} = '-';
-						$block_ref_pos{$block_id}{$seq_id}{'header'} =~ s/ + / - /;
-					}
-
-					else {
-						$block_ref_pos{$block_id}{$seq_id}{'strand'} = '+';
-						$block_ref_pos{$block_id}{$seq_id}{'header'} =~ s/ - / + /;
-					}
+			if (exists $block_seq_info{$block_id}{$order_seq_id}) {
+				if ($block_seq_info{$block_id}{$order_seq_id}{'strand'} eq '-') {
+					rev_comp_block($block_id);
 				}
 
 				last();
 			}
+		}
+	}
+
+	return(0);
+}
+
+
+sub orient_adj_inversions {
+	my %prev_seq_block = ();
+
+	foreach my $block_index (0..$#block_order) {
+		my $block_id = $block_order[$block_index];
+
+		foreach my $seq_id (reverse @sort_order) {
+			if (! exists($block_seq_info{$block_id}{$seq_id}{'start'})) {
+				next();
+			}
+
+			my $sort_priority = $block_seq_sort_priorities{$block_id}{$seq_id};
+			my $start = $block_seq_info{$block_id}{$seq_id}{'start'};
+			my $stop = $block_seq_info{$block_id}{$seq_id}{'stop'};
+			my $strand = $block_seq_info{$block_id}{$seq_id}{'strand'};
+
+			my $move_prev_block_index;
+			my $move_prev_block_id;
+
+			if (exists($prev_seq_block{$seq_id})) {
+				my $prev_block_id = $prev_seq_block{$seq_id};
+				my $prev_sort_priority = $block_seq_sort_priorities{$prev_block_id}{$seq_id};
+
+				if ($prev_sort_priority == 1) {
+					my $prev_strand = $block_seq_info{$prev_block_id}{$seq_id}{'strand'};
+
+					if ($strand ne $prev_strand) {
+						my $prev_stop = $block_seq_info{$prev_block_id}{$seq_id}{'stop'};
+
+						if ($start == ($prev_stop + 1)) {
+							$move_prev_block_id = $prev_block_id;
+							$move_prev_block_index = get_block_order_index($prev_block_id);
+						}
+					}
+				}
+
+				my $move_next_block_index;
+				my $move_next_block_id;
+
+				foreach my $next_block_index (($block_index + 1)..$#block_order) {
+					my $next_block_id = $block_order[$next_block_index];
+
+					if (! exists($block_seq_info{$next_block_id}{$seq_id}{'start'})) {
+						next();
+					}
+
+					my $next_sort_priority = $block_seq_sort_priorities{$next_block_id}{$seq_id};
+
+					if ($next_sort_priority == 1) {
+						my $next_start = $block_seq_info{$next_block_id}{$seq_id}{'start'};
+						my $next_strand = $block_seq_info{$next_block_id}{$seq_id}{'strand'};
+
+						if ($strand ne $next_strand) {
+							if (($stop + 1) == $next_start) {
+								$move_next_block_id = $next_block_id;
+								$move_next_block_index = get_block_order_index($next_block_id);
+							}
+						}
+					}
+
+					last();
+				}
+
+				if (defined($move_prev_block_index) || defined($move_next_block_index)) {
+					foreach my $mod_block_id ($move_prev_block_id, $move_next_block_id) {
+						if (defined($mod_block_id)) {
+							rev_comp_block($mod_block_id);
+						}
+					}
+
+					if (defined($move_prev_block_index) && defined($move_next_block_index)) {
+						$block_order[$move_prev_block_index] = $move_next_block_id;
+						$block_order[$move_next_block_index] = $move_prev_block_id;
+					}
+
+					elsif (defined($move_prev_block_index)) {
+						splice(@block_order, $block_index + 1, 0, $move_prev_block_id);
+						splice(@block_order, $move_prev_block_index, 1);
+					}
+
+					elsif (defined($move_next_block_index)) {
+						splice(@block_order, $move_next_block_index, 1);
+						splice(@block_order, $block_index, 0, $move_next_block_id);
+					}
+				}
+			}
+
+			$prev_seq_block{$seq_id} = $block_id;
+		}
+	}
+
+	return(0);
+}
+
+
+sub rev_comp_block {
+	my $block_id = shift();
+
+	if (! defined($block_id)) {
+		print("block id not defined in call to rev_comp_block()\n");
+
+		return(1);
+	}
+
+	foreach my $seq_id (keys %{$block_seqs{$block_id}}) {
+		my $seq = $block_seqs{$block_id}{$seq_id};
+		my $rc_seq = reverse($seq);
+
+		$rc_seq =~ tr/ACGTacgt/TGCAtgca/;
+
+		$block_seqs{$block_id}{$seq_id} = $rc_seq;
+
+		if ($block_seq_info{$block_id}{$seq_id}{'strand'} eq '+') {
+			$block_seq_info{$block_id}{$seq_id}{'strand'} = '-';
+			$block_seq_info{$block_id}{$seq_id}{'header'} =~ s/ \+ / - /;
+		}
+
+		else {
+			$block_seq_info{$block_id}{$seq_id}{'strand'} = '+';
+			$block_seq_info{$block_id}{$seq_id}{'header'} =~ s/ \- / + /;
 		}
 	}
 
