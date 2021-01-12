@@ -33,6 +33,7 @@ parse_args();
 parse_xmfa_header();
 my ($coords_fh, $sorted_xmfa_fh) = open_fhs();
 parse_blocks();
+set_sort_priorities();
 orient_blocks();
 sort_blocks();
 orient_adj_inversions();
@@ -334,7 +335,6 @@ sub parse_blocks {
 				$block_seq_info{$block_id}{$seq_id}{'strand'} = $strand;
 				$block_seq_info{$block_id}{$seq_id}{'header'} = $line;
 				$block_seq_order{$block_id}{$block_seq_count} = $seq_id;
-				$block_seq_sort_priorities{$block_id}{$seq_id} = $block_seq_count;
 
 				$valid_seq = 1;
 			}
@@ -366,11 +366,27 @@ sub parse_blocks {
 }
 
 
+sub set_sort_priorities {
+	foreach my $block_id (keys %block_seqs) {
+		my $sort_priority = 1;
+
+		foreach my $seq_id (@sort_order) {
+			if (exists $block_seq_info{$block_id}{$seq_id}{'start'}) {
+				$block_seq_sort_priorities{$block_id}{$seq_id} = $sort_priority;
+				$sort_priority++;
+			}
+		}
+	}
+
+	return(0);
+}
+
+
 sub orient_blocks {
 	foreach my $block_id (keys %block_seqs) {
-		foreach my $order_seq_id (@sort_order) {
-			if (exists $block_seq_info{$block_id}{$order_seq_id}) {
-				if ($block_seq_info{$block_id}{$order_seq_id}{'strand'} eq '-') {
+		foreach my $seq_id (@sort_order) {
+			if (exists $block_seq_info{$block_id}{$seq_id}{'strand'}) {
+				if ($block_seq_info{$block_id}{$seq_id}{'strand'} eq '-') {
 					rev_comp_block($block_id);
 				}
 
