@@ -657,6 +657,12 @@ sub parse_args {
 	}
 
 	$fasta_outdir =~ s/\/$//;
+
+	if (! -e $fasta_outdir) {
+		my $cmd = "mkdir -p $fasta_outdir";
+
+		system($cmd);
+	}
 }
 
 
