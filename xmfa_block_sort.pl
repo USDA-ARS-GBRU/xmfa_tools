@@ -97,17 +97,19 @@ sub sort_blocks {
 			my @static_block_order = @block_order;
 
 			foreach my $block_id (@static_block_order) {
+				my $unplaced_block_count = keys %unplaced_blocks;
+
+				if ($unplaced_block_count == 0) {
+					last();
+				}
+
 				my $block_order_index = get_block_order_index($block_id);
 
-				if (defined($block_order_index)) {
-					extend_block($block_order_index, $block_id, $seq_id, 'left');
-				}
+				extend_block($block_id, $seq_id, 'left');
 
 				$block_order_index = get_block_order_index($block_id);
 
-				if (defined($block_order_index)) {
-					extend_block($block_order_index, $block_id, $seq_id, 'right');
-				}
+				extend_block($block_id, $seq_id, 'right');
 			}
 		}
 	}
@@ -229,12 +231,11 @@ sub print_blocks {
 
 
 sub extend_block {
-	my $block_order_index = shift();
 	my $block_id = shift();
 	my $seq_id = shift();
 	my $dir = shift();
 
-	if (! defined($block_order_index) || ! defined($block_id) || ! defined($seq_id) || ! defined($dir)) {
+	if (! defined($block_id) || ! defined($seq_id) || ! defined($dir)) {
 		return(0);
 	}
 
@@ -257,21 +258,25 @@ sub extend_block {
 
 		if ($dir eq 'left') {
 			if ($unplaced_stop == $start - 1) {
+				my $block_order_index = get_block_order_index($block_id);
+
 				splice(@block_order, $block_order_index, 0, $unplaced_block_id);
 				delete($unplaced_blocks{$unplaced_block_id});
 				$match = 1;
 
-				extend_block($block_order_index, $unplaced_block_id, $seq_id, $dir);
+				extend_block($unplaced_block_id, $seq_id, $dir);
 			}
 		}
 
 		elsif ($dir eq 'right') {
 			if ($unplaced_start == $stop + 1) {
+				my $block_order_index = get_block_order_index($block_id);
+
 				splice(@block_order, $block_order_index + 1, 0, $unplaced_block_id);
 				delete($unplaced_blocks{$unplaced_block_id});
 				$match = 1;
 
-				extend_block($block_order_index + 1, $unplaced_block_id, $seq_id, $dir);
+				extend_block($unplaced_block_id, $seq_id, $dir);
 			}
 		}
 
