@@ -346,8 +346,8 @@ sub print_blocks {
 			}
 		}
 
-		foreach my $block_file (glob("$vg_tmp_dir/block*")) {
-			unlink($block_file);
+		foreach my $vg_tmp_file (glob("$vg_tmp_dir/block*")) {
+			unlink($vg_tmp_file);
 		}
 
 		unlink($vg_tmp_dir);
@@ -665,12 +665,6 @@ sub proc_gfa_block {
 		return(1);
 	}
 
-	#my $cmd = "$vg_path construct -M $block_fasta_file > $block_file_prefix.vg";
-
-	#system($cmd);
-
-	#$cmd = "$vg_path view $block_file_prefix.vg > $block_file_prefix.gfa";
-
 	my $cmd = "$vg_path construct -M $block_fasta_file | $vg_path ids -i $gfa_offset - | $vg_path view - > $block_file_prefix.gfa 2> $block_file_prefix.vg.stderr";
 
 	system($cmd);
@@ -681,11 +675,7 @@ sub proc_gfa_block {
 	while (my $line = <GFA>) {
 		chomp($line);
 
-		if ($line =~ /^H\t/) {
-			next();
-		}
-
-		elsif ($line =~ /^S\t/) {
+		if ($line =~ /^S\t/) {
 			my ($rec_type, $id, $seq) = split(/\t/, $line);
 
 			if ($id > $gfa_offset) {
