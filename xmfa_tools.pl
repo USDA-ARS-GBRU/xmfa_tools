@@ -954,13 +954,13 @@ Brian Abernathy
                  example: --order 2 3 1 (sort by 2, then 3, then 1)
                  example: --order 3 (sort by 3, then 1, then 2)
 
+ -p --print    print reference seq ids, then exit
+
  -i --include  include only specified seq ids in output
                  default: include all
                  example: --include 1 3 7
 
 =head2 output
-
- -p --print    print reference seq ids, then exit
 
  --xmfasort    output sorted xmfa file
 
