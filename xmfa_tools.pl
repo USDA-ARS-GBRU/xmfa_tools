@@ -906,7 +906,7 @@ sub parse_args {
 		}
 
 		else {
-			$vg_path = `which vg`;
+			$vg_path = qx(which vg);
 
 			chomp($vg_path);
 
@@ -964,7 +964,7 @@ Brian Abernathy
 
  --xmfasort    output sorted xmfa file
 
- -g --gfa      output gfa file
+ -g --gfa      output gfa (v1) file
 
  --gfapostfix  output gfa seq postfix (used in path records)
                  default: no postfix
