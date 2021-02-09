@@ -51,13 +51,13 @@ Options:
 
      -g --gfa      output gfa (v1) file
 
-     --gfabasename output sequence 'base name' in gfa path records
-                     if xmfa 'Entry' header records are present,
-                     this option will automatically be disabled
+     --gfabasename include sequence 'base name' in gfa path records
+                     If xmfa 'Entry' header records are present,
+                     this option will automatically be disabled.
                      (use -p option to see xmfa seq base names)
                      default: no base name
 
-     --gfapostfix  output gfa seq postfix (used in path records)
+     --gfapostfix  include gfa seq postfix in gfa path records
                      default: no postfix
                      example: --gfapostfix ".chr01"
 
