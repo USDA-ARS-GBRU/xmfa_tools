@@ -18,6 +18,7 @@ my $fasta_linker;
 my $coords_file;
 my $sorted_xmfa_file;
 my $gfa_file;
+my $gfa_base_name;
 my $gfa_postfix;
 my $vg_path;
 my $null_record = 'NA';
@@ -710,13 +711,16 @@ sub proc_gfa_block {
 			}
 
 			my $path_name = "$seq_id";
-			my $seq_file_base = $null_record;
 
-			if (exists($seq_id_names{$seq_id})) {
-				$seq_file_base = $seq_id_names{$seq_id};
+			if (defined($gfa_base_name)) {
+				my $seq_file_base = $null_record;
+
+				if (exists($seq_id_names{$seq_id})) {
+					$seq_file_base = $seq_id_names{$seq_id};
+				}
+
+				$path_name .= ":$seq_file_base";
 			}
-
-			$path_name .= ":$seq_file_base";
 
 			if (defined($gfa_postfix)) {
 				$path_name .= "$gfa_postfix";
@@ -762,40 +766,35 @@ sub parse_xmfa_header {
 	open(XMFA, '<', $xmfa_file) or error("$!");
 
 	while (my $line = <XMFA>) {
-		if ($line =~ /^#Sequence(\d+)File/) {
+		if ($line =~ /^#Sequence(\d+)File/ || $line =~ /^#Sequence(\d+)Entry/) {
 			chomp($line);
 
 			my $seq_id = $1;
 
 			$header_seq_ids{$seq_id}++;
 
-			my ($header, $seq_file) = split(/\t/, $line);
+			my ($header_field, $header_val) = split(/\t/, $line);
+			my $file_base = $header_val;
 
-			if (defined($print_seq_ids)) {
-				print("id: $seq_id\tseq file: $seq_file\n");
+			$file_base =~ s/^.*\///;
+			$file_base =~ s/\.f[ast]*a//;
+
+			$seq_id_names{$seq_id} = $file_base;
+
+			if ($line =~ /^#Sequence(\d+)Entry/) {
+				$gfa_base_name = undef;
 			}
 
-			else {
-				my $file_base = $seq_file;
-
-				$file_base =~ s/^.*\///;
-				$file_base =~ s/\.f[ast]*a//;
-
-				$seq_id_names{$seq_id} = $file_base;
-
-				if (@includes && ! exists($includes{$seq_id})) {
-					next();
+			if (defined($print_seq_ids)) {
+				if ($line =~ /^#Sequence(\d+)File/) {
+					print(STDOUT "id: $seq_id\tseq file: $header_val\n");
 				}
 
-				if (defined($coords_file)) {
-					my $seq_id_fasta_file = "$fasta_dir/$file_base"."$fasta_postfix";
-
-					open($seq_id_fasta_fhs{$seq_id}, '>', $seq_id_fasta_file) or error("$!");
-
-					my $fasta_fh = $seq_id_fasta_fhs{$seq_id};
-
-					print($fasta_fh ">$file_base"."$fasta_postfix\n");
+				elsif ($line =~ /^#Sequence(\d+)Entry/) {
+					print(STDOUT "id: $seq_id\tseq entry: $header_val\n");
 				}
+
+				print(STDOUT "id: $seq_id\tbase name: $file_base\n");
 			}
 		}
 
@@ -808,6 +807,24 @@ sub parse_xmfa_header {
 
 	if (defined($print_seq_ids)) {
 		exit(0);
+	}
+
+	foreach my $seq_id (keys %seq_id_names) {
+		my $file_base = $seq_id_names{$seq_id};
+
+		if (@includes && ! exists($includes{$seq_id})) {
+			next();
+		}
+
+		if (defined($coords_file)) {
+			my $seq_id_fasta_file = "$fasta_dir/$file_base"."$fasta_postfix";
+
+			open($seq_id_fasta_fhs{$seq_id}, '>', $seq_id_fasta_file) or error("$!");
+
+			my $fasta_fh = $seq_id_fasta_fhs{$seq_id};
+
+			print($fasta_fh ">$file_base"."$fasta_postfix\n");
+		}
 	}
 
 	foreach my $seq_id (@sort_order) {
@@ -868,6 +885,7 @@ sub parse_args {
 				'c|coords=s' => \$coords_file,
 				'xmfasort=s' => \$sorted_xmfa_file,
 				'g|gfa=s' => \$gfa_file,
+				'gfabasename' => \$gfa_base_name,
 				'gfapostfix=s' => \$gfa_postfix,
 				'v|vg=s' => \$vg_path,
 				'n|null=s' => \$null_record,
@@ -966,6 +984,12 @@ Brian Abernathy
  --xmfasort    output sorted xmfa file
 
  -g --gfa      output gfa (v1) file
+
+ --gfabasename output sequence 'base name' in gfa path records
+                 if xmfa 'Entry' header records are present,
+                 this option will automatically be disabled
+                 (use -p option to see xmfa seq base names)
+                 default: no base name
 
  --gfapostfix  output gfa seq postfix (used in path records)
                  default: no postfix
