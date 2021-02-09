@@ -351,7 +351,7 @@ sub print_blocks {
 			unlink($vg_tmp_file);
 		}
 
-		unlink($vg_tmp_dir);
+		rmdir($vg_tmp_dir);
 	}
 
 	return(0);
