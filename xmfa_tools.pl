@@ -986,7 +986,7 @@ Brian Abernathy
  -g --gfa      output gfa (v1) file
 
  --gfabasename include sequence 'base name' in gfa path records
-                 If xmfa 'Entry' header records are present,
+                 If xmfa header 'Entry' records are present,
                  this option will automatically be disabled.
                  (use -p option to see xmfa seq base names)
                  default: no base name
