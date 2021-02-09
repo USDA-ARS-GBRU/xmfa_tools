@@ -910,7 +910,7 @@ sub parse_args {
 
 			chomp($vg_path);
 
-			if (! defined($vg_path)) {
+			if (! defined($vg_path) || $vg_path eq '') {
 				error("vg not found in \$PATH, specify using -v/--vg option");
 			}
 
