@@ -20,7 +20,6 @@ my $sorted_xmfa_file;
 my $gfa_file;
 my $gfa_postfix;
 my $vg_path;
-my $vg_tmp_dir = 'vg.tmp';
 my $null_record = 'NA';
 my $help;
 
@@ -38,6 +37,8 @@ my %seq_id_fasta_fhs = ();
 my %gfa_paths = ();
 my %gfa_path_blocks = ();
 my $gfa_offset = 0;
+my $vg_rand = sprintf("%06d", int(rand(999999)));
+my $vg_tmp_dir = "vg.tmp.$vg_rand";
 
 parse_args();
 parse_xmfa_header();
