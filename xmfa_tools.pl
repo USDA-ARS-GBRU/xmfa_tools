@@ -13,12 +13,12 @@ my @sort_order = ();
 my @includes = ();
 my %includes = ();
 my $fasta_dir = '.';
-my $fasta_postfix = '.sort.fa';
+my $fasta_postfix = '.sort.gapped.fa';
 my $fasta_linker;
 my $coords_file;
 my $sorted_xmfa_file;
 my $gfa_file;
-my $gfa_base_name;
+my $use_base_names = 1;
 my $gfa_postfix;
 my $vg_path;
 my $null_record = 'NA';
@@ -33,7 +33,7 @@ my %block_stops = ();
 my %block_seq_info = ();
 my @block_order = ();
 my %unplaced_blocks = ();
-my %seq_id_names = ();
+my %seq_base_names = ();
 my %seq_id_fasta_fhs = ();
 my %gfa_paths = ();
 my %gfa_path_blocks = ();
@@ -154,9 +154,13 @@ sub print_blocks {
 				next();
 			}
 
-			my $seq_name = $seq_id_names{$seq_id};
+			my $seq_base_name = $seq_id;
 
-			print($coords_fh join("\t", '', "$seq_name.fasta.start", "$seq_name.fasta.stop", "$seq_name.xmfa.start", "$seq_name.xmfa.stop", "$seq_name.xmfa.strand"));
+			if ($use_base_names == 1 && exists($seq_base_names{$seq_id})) {
+				$seq_base_name = $seq_base_names{$seq_id};
+			}
+
+			print($coords_fh join("\t", '', "$seq_base_name.fasta.start", "$seq_base_name.fasta.stop", "$seq_base_name.xmfa.start", "$seq_base_name.xmfa.stop", "$seq_base_name.xmfa.strand"));
 		}
 
 		print($coords_fh "\n");
@@ -712,14 +716,8 @@ sub proc_gfa_block {
 
 			my $path_name = "$seq_id";
 
-			if (defined($gfa_base_name)) {
-				my $seq_file_base = $null_record;
-
-				if (exists($seq_id_names{$seq_id})) {
-					$seq_file_base = $seq_id_names{$seq_id};
-				}
-
-				$path_name .= ":$seq_file_base";
+			if ($use_base_names == 1 && exists($seq_base_names{$seq_id})) {
+            	$path_name .= ":$seq_base_names{$seq_id}";
 			}
 
 			if (defined($gfa_postfix)) {
@@ -762,11 +760,12 @@ sub open_fhs {
 
 sub parse_xmfa_header {
 	my %header_seq_ids = ();
+	my %base_names = ();
 
 	open(XMFA, '<', $xmfa_file) or error("$!");
 
 	while (my $line = <XMFA>) {
-		if ($line =~ /^#Sequence(\d+)File/ || $line =~ /^#Sequence(\d+)Entry/) {
+		if ($line =~ /^#Sequence(\d+)File/) {
 			chomp($line);
 
 			my $seq_id = $1;
@@ -774,27 +773,23 @@ sub parse_xmfa_header {
 			$header_seq_ids{$seq_id}++;
 
 			my ($header_field, $header_val) = split(/\t/, $line);
-			my $file_base = $header_val;
+			my $base_name = $header_val;
 
-			$file_base =~ s/^.*\///;
-			$file_base =~ s/\.f[ast]*a//;
+			$base_name =~ s/^.*\///;
+			$base_name =~ s/\.f[ast]*a//;
 
-			$seq_id_names{$seq_id} = $file_base;
+			if ($use_base_names == 1 && exists($base_names{$base_name})) {
+				print(STDOUT "duplicate base name: $base_name found, use of base names in output disabled\n");
 
-			if ($line =~ /^#Sequence(\d+)Entry/) {
-				$gfa_base_name = undef;
+				$use_base_names = 0;
 			}
 
+			$base_names{$base_name}++;
+			$seq_base_names{$seq_id} = $base_name;
+
 			if (defined($print_seq_ids)) {
-				if ($line =~ /^#Sequence(\d+)File/) {
-					print(STDOUT "id: $seq_id\tseq file: $header_val\n");
-				}
-
-				elsif ($line =~ /^#Sequence(\d+)Entry/) {
-					print(STDOUT "id: $seq_id\tseq entry: $header_val\n");
-				}
-
-				print(STDOUT "id: $seq_id\tbase name: $file_base\n");
+				print(STDOUT "id: $seq_id\tseq file: $header_val\n");
+				print(STDOUT "id: $seq_id\tbase name: $base_name\n");
 			}
 		}
 
@@ -809,8 +804,12 @@ sub parse_xmfa_header {
 		exit(0);
 	}
 
-	foreach my $seq_id (keys %seq_id_names) {
-		my $file_base = $seq_id_names{$seq_id};
+	foreach my $seq_id (keys %seq_base_names) {
+		my $file_base = $seq_id;
+
+		if ($use_base_names == 1 && exists($seq_base_names{$seq_id})) {
+			$file_base = $seq_base_names{$seq_id};
+		}
 
 		if (@includes && ! exists($includes{$seq_id})) {
 			next();
@@ -878,6 +877,7 @@ sub parse_args {
 				'p|print' => \$print_seq_ids,
 				's|sort' => \$enable_sort,
 				'o|order=s{,}' => \@sort_order,
+				'basenames!' => \$use_base_names,
 				'i|include=s{,}' => \@includes,
 				'fastadir=s' => \$fasta_dir,
 				'fapostfix=s' => \$fasta_postfix,
@@ -885,7 +885,6 @@ sub parse_args {
 				'c|coords=s' => \$coords_file,
 				'xmfasort=s' => \$sorted_xmfa_file,
 				'g|gfa=s' => \$gfa_file,
-				'gfabasename' => \$gfa_base_name,
 				'gfapostfix=s' => \$gfa_postfix,
 				'v|vg=s' => \$vg_path,
 				'n|null=s' => \$null_record,
@@ -973,7 +972,13 @@ Brian Abernathy
                  example: --order 2 3 1 (sort by 2, then 3, then 1)
                  example: --order 3 (sort by 3, then 1, then 2)
 
- -p --print    print reference seq ids, then exit
+ -p --print    print reference seq ids, file and base names, then exit
+
+ --nobasenames disable use of base names in fasta and gfa files
+                 By default, base names (viewed using -p option) are
+                 used to name output fasta files and gfa path records.
+                 The --nobasenames option will disable the use of
+                 base names and use seq ids instead.
 
  -i --include  include only specified seq ids in output
                  default: include all
@@ -984,12 +989,6 @@ Brian Abernathy
  --xmfasort    output sorted xmfa file
 
  -g --gfa      output gfa (v1) file
-
- --gfabasename include sequence 'base name' in gfa path records
-                 If xmfa header 'Entry' records are present,
-                 this option will automatically be disabled.
-                 (use -p option to see xmfa seq base names)
-                 default: no base name
 
  --gfapostfix  include gfa seq postfix in gfa path records
                  default: no postfix
@@ -1008,8 +1007,8 @@ Brian Abernathy
  --fastadir    output fasta directory
                  default: current working directory
 
- --fapostfix   output fasta file postfix
-                 default: ".sort.fa"
+ --fapostfix   output gapped fasta file postfix
+                 default: ".sort.gapped.fa"
 
  -l --linker   output fasta block sequence linker
                  default: no linker
