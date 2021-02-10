@@ -39,7 +39,13 @@ Options:
                      example: --order 2 3 1 (sort by 2, then 3, then 1)
                      example: --order 3 (sort by 3, then 1, then 2)
 
-     -p --print    print reference seq ids, then exit
+     -p --print    print reference seq ids, file and base names, then exit
+
+     --nobasenames disable use of base names in fasta and gfa files
+                     By default, base names (viewed using -p option) are
+                     used to name output fasta files and gfa path records.
+                     The --nobasenames option will disable the use of
+                     base names and use seq ids instead.
 
      -i --include  include only specified seq ids in output
                      default: include all
@@ -50,12 +56,6 @@ Options:
      --xmfasort    output sorted xmfa file
 
      -g --gfa      output gfa (v1) file
-
-     --gfabasename include sequence 'base name' in gfa path records
-                     If xmfa header 'Entry' records are present,
-                     this option will automatically be disabled.
-                     (use -p option to see xmfa seq base names)
-                     default: no base name
 
      --gfapostfix  include gfa seq postfix in gfa path records
                      default: no postfix
@@ -74,8 +74,8 @@ Options:
      --fastadir    output fasta directory
                      default: current working directory
 
-     --fapostfix   output fasta file postfix
-                     default: ".sort.fa"
+     --fapostfix   output gapped fasta file postfix
+                     default: ".sort.gapped.fa"
 
      -l --linker   output fasta block sequence linker
                      default: no linker
