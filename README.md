@@ -39,13 +39,13 @@ Options:
                      example: --order 2 3 1 (sort by 2, then 3, then 1)
                      example: --order 3 (sort by 3, then 1, then 2)
 
-     -p --print    print reference seq ids, file and base names, then exit
+     -p --print    print ref seq ids, file and base names, then exit
 
      --nobasenames disable use of base names in fasta and gfa files
-                     By default, base names (viewed using -p option) are
-                     used to name output fasta files and gfa path records.
-                     The --nobasenames option will disable the use of
-                     base names and use seq ids instead.
+                     By default, base names (viewed using -p option)
+                     are used to name output fasta files and gfa path
+                     records. The --nobasenames option will disable
+                     the use of base names and use seq ids instead.
 
      -i --include  include only specified seq ids in output
                      default: include all
