@@ -340,7 +340,7 @@ sub print_blocks {
 			
 						if (defined($prev_id)) {
 							if (! exists($links{"$prev_id $prev_strand $id $strand"})) {
-								print($gfa_fh join("\t", 'L', $prev_id, $prev_strand, $id, $strand, '*'), "\n");
+								print($gfa_fh join("\t", 'L', $prev_id, $prev_strand, $id, $strand, '0M'), "\n");
 							}
 
 							$links{"$prev_id $prev_strand $id $strand"}++;
