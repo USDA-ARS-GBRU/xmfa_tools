@@ -51,11 +51,16 @@ Options:
                      default: include all
                      example: --include 1 3 7
 
+     -t --threads  number of vg threads to use for gfa processing
+                     Current vg versions yield a very modest gain
+                     in processing speed with multithreading enabled.
+                     default: 1
+
   output:
 
      --xmfasort    output sorted xmfa file
 
-     -g --gfa      output gfa (v1) file
+     -g --gfa      output gfa file (vg-based, similar to v1 spec)
 
      --gfapostfix  include gfa seq postfix in gfa path records
                      default: no postfix
