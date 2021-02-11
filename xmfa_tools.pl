@@ -21,6 +21,7 @@ my $gfa_file;
 my $use_base_names = 1;
 my $gfa_postfix;
 my $vg_path;
+my $threads = 1;
 my $null_record = 'NA';
 my $help;
 
@@ -671,7 +672,7 @@ sub proc_gfa_block {
 		return(1);
 	}
 
-	my $cmd = "$vg_path construct -M $block_fasta_file | $vg_path ids -i $gfa_offset - | $vg_path view - > $block_file_prefix.gfa 2> $block_file_prefix.vg.stderr";
+	my $cmd = "$vg_path construct --threads $threads -M $block_fasta_file | $vg_path ids -i $gfa_offset - | $vg_path view --threads $threads - > $block_file_prefix.gfa 2> $block_file_prefix.vg.stderr";
 
 	system($cmd);
 
@@ -887,6 +888,7 @@ sub parse_args {
 				'g|gfa=s' => \$gfa_file,
 				'gfapostfix=s' => \$gfa_postfix,
 				'v|vg=s' => \$vg_path,
+				't|threads=i' => \$threads,
 				'n|null=s' => \$null_record,
 				'h|help' => \$help) or error('cannot parse arguments');
 
@@ -933,6 +935,10 @@ sub parse_args {
 			}
 
 			print(STDOUT "using vg found at $vg_path\n");
+		}
+
+		if (defined($threads) && $threads < 1) {
+			error("number of threads must be a positive integer");
 		}
 	}
 }
@@ -984,11 +990,16 @@ Brian Abernathy
                  default: include all
                  example: --include 1 3 7
 
+ -t --threads  number of vg threads to use for gfa processing
+                 Current vg versions yield a very modest gain
+                 in processing speed with multithreading enabled.
+                 default: 1
+
 =head2 output
 
  --xmfasort    output sorted xmfa file
 
- -g --gfa      output gfa (v1) file
+ -g --gfa      output gfa file (vg-based, similar to v1 spec)
 
  --gfapostfix  include gfa seq postfix in gfa path records
                  default: no postfix
