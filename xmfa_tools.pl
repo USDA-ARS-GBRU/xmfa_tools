@@ -904,6 +904,10 @@ sub parse_args {
 		arg_error('at least one output file must be specified');
 	}
 
+	if (defined($sorted_xmfa_file) && ! defined($enable_sort)) {
+		$enable_sort = 1;
+	}
+
 	foreach my $include (@includes) {
 		$includes{$include}++;
 	}
