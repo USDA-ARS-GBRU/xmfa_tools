@@ -3,12 +3,12 @@
 ### xmfa_tools.pl
 Description:
 
-	sort XMFA file by block (LCB) and generate gapped fasta
-	files with fasta/xmfa coordinates
+    sort XMFA file by block (LCB) and generate gapped fasta
+    files with fasta/xmfa coordinates
 
     This is accomplished by defining a multi-pass sort using
-    sequence IDs found in the XMFA header. The primary sort 
-    sequence ID is used to establish a backbone of blocks. 
+    sequence IDs found in the XMFA header. The primary sort
+    sequence ID is used to establish a backbone of blocks.
     Additional sorting passes recursively extend the backbone
     blocks using the non-primary sequence ID block positions.
 
@@ -18,6 +18,7 @@ Description:
     sequence alignment of highest sort priority. When the
     highest sort priority sequence alignment is on the reverse
     strand, all block sequences are reverse complemented.
+
 
 Usage:
 
@@ -31,7 +32,7 @@ Options:
 
   processing:
 
-     -p --print    print xmfa seq ids, file and base names, then exit
+     -p --print    print xmfa seq ids, names and files, then exit
 
      -s --sort     enable block sorting
 
@@ -41,11 +42,11 @@ Options:
                      example: --order 2 3 1 (sort by 2, then 3, then 1)
                      example: --order 3 (sort by 3, then 1, then 2)
 
-     --nobasenames disable use of base names in fasta and gfa files
-                     By default, base names (viewed using -p option)
+     --noseqnames  disable use of seq names in fasta and gfa files
+                     By default, seq names (viewed using -p option)
                      are used to name output fasta files and gfa path
-                     records. The --nobasenames option will disable
-                     the use of base names and use seq ids instead.
+                     records. The --noseqnames option will disable
+                     the use of seq names and use seq ids instead.
 
      -i --include  include only specified seq ids in output
                      default: include all
@@ -68,6 +69,10 @@ Options:
 
      -v --vg       path to vg executable (required for gfa processing)
                      default: autodetect in $PATH (if available)
+
+     --catgfapaths concatenate gfa paths with the same gfa name
+                     default: output separate path records for each
+                     block
 
      -c --coords   output fasta coords file
                      specifying a fasta coords file will generate
