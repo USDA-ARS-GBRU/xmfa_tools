@@ -31,6 +31,8 @@ Options:
 
   processing:
 
+     -p --print    print xmfa seq ids, file and base names, then exit
+
      -s --sort     enable block sorting
 
      -o --order    sort order
@@ -38,8 +40,6 @@ Options:
                      default: sort by 1, 2, 3... 
                      example: --order 2 3 1 (sort by 2, then 3, then 1)
                      example: --order 3 (sort by 3, then 1, then 2)
-
-     -p --print    print ref seq ids, file and base names, then exit
 
      --nobasenames disable use of base names in fasta and gfa files
                      By default, base names (viewed using -p option)
