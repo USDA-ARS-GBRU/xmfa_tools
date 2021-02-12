@@ -18,9 +18,10 @@ my $fasta_linker;
 my $coords_file;
 my $sorted_xmfa_file;
 my $gfa_file;
-my $use_base_names = 1;
+my $use_seq_names = 1;
 my $gfa_postfix;
 my $vg_path;
+my $cat_gfa_paths;
 my $threads = 1;
 my $null_record = 'NA';
 my $help;
@@ -34,7 +35,7 @@ my %block_stops = ();
 my %block_seq_info = ();
 my @block_order = ();
 my %unplaced_blocks = ();
-my %seq_base_names = ();
+my %seq_names = ();
 my %seq_id_fasta_fhs = ();
 my %gfa_paths = ();
 my %gfa_path_blocks = ();
@@ -155,13 +156,9 @@ sub print_blocks {
 				next();
 			}
 
-			my $seq_base_name = $seq_id;
+			my $seq_name = $seq_names{$seq_id};
 
-			if ($use_base_names == 1 && exists($seq_base_names{$seq_id})) {
-				$seq_base_name = $seq_base_names{$seq_id};
-			}
-
-			print($coords_fh join("\t", '', "$seq_base_name.fasta.start", "$seq_base_name.fasta.stop", "$seq_base_name.xmfa.start", "$seq_base_name.xmfa.stop", "$seq_base_name.xmfa.strand"));
+			print($coords_fh join("\t", '', "$seq_name.fasta.start", "$seq_name.fasta.stop", "$seq_name.xmfa.start", "$seq_name.xmfa.stop", "$seq_name.xmfa.strand"));
 		}
 
 		print($coords_fh "\n");
@@ -315,6 +312,8 @@ sub print_blocks {
 		foreach my $seq_id (@sort_order) {
 			my $prev_id;
 			my $prev_strand;
+			my @segs = ();
+			my @matches = ();
 
 			if (@includes && ! exists($includes{$seq_id})) {
 				next();
@@ -324,7 +323,14 @@ sub print_blocks {
 				my $path_rec = $gfa_paths{$seq_id}{$start};
 				my ($rec_type, $header, $segs, $matches) = split(/\t/, $path_rec);
 
-				print($gfa_fh "$path_rec\n");
+				if (defined($cat_gfa_paths)) {
+					push(@segs, $segs);
+					push(@matches, $matches);
+				}
+
+				else {
+					print($gfa_fh "$path_rec\n");
+				}
 
 				my @segs = split(',', $segs);
 
@@ -350,6 +356,10 @@ sub print_blocks {
 						$prev_strand = $strand;
 					}
 				}
+			}
+
+			if (defined($cat_gfa_paths)) {
+				print($gfa_fh "P\t$seq_names{$seq_id}\t", join(',', @segs), "\t", join(',', @matches), "\n");
 			}
 		}
 
@@ -715,11 +725,7 @@ sub proc_gfa_block {
 				$matches = join(',', @matches);
 			}
 
-			my $path_name = "$seq_id";
-
-			if ($use_base_names == 1 && exists($seq_base_names{$seq_id})) {
-            	$path_name = "$seq_base_names{$seq_id}";
-			}
+			my $path_name = $seq_names{$seq_id};
 
 			if (defined($gfa_postfix)) {
 				$path_name .= "$gfa_postfix";
@@ -762,6 +768,7 @@ sub open_fhs {
 sub parse_xmfa_header {
 	my %header_seq_ids = ();
 	my %base_names = ();
+	my %seq_base_names = ();
 
 	open(XMFA, '<', $xmfa_file) or error("$!");
 
@@ -779,17 +786,17 @@ sub parse_xmfa_header {
 			$base_name =~ s/^.*\///;
 			$base_name =~ s/\.f[ast]*a//;
 
-			if ($use_base_names == 1 && exists($base_names{$base_name})) {
+			if ($use_seq_names == 1 && exists($base_names{$base_name})) {
 				print(STDOUT "duplicate base name: $base_name found, use of base names in output disabled\n");
 
-				$use_base_names = 0;
+				$use_seq_names = 0;
 			}
 
 			$base_names{$base_name}++;
 			$seq_base_names{$seq_id} = $base_name;
 
 			if (defined($print_seq_ids)) {
-				print(STDOUT "id: $seq_id\tbase name: $base_name\tseq file: $header_val\n");
+				print(STDOUT "seq id: $seq_id\tname: $base_name\tfile: $header_val\n");
 			}
 		}
 
@@ -805,24 +812,26 @@ sub parse_xmfa_header {
 	}
 
 	foreach my $seq_id (keys %seq_base_names) {
-		my $file_base = $seq_id;
-
-		if ($use_base_names == 1 && exists($seq_base_names{$seq_id})) {
-			$file_base = $seq_base_names{$seq_id};
-		}
-
 		if (@includes && ! exists($includes{$seq_id})) {
 			next();
 		}
 
+		$seq_names{$seq_id} = $seq_id;
+
+		if ($use_seq_names == 1 && exists($seq_base_names{$seq_id})) {
+			$seq_names{$seq_id} = $seq_base_names{$seq_id};
+		}
+
+		my $seq_name = $seq_names{$seq_id};
+
 		if (defined($coords_file)) {
-			my $seq_id_fasta_file = "$fasta_dir/$file_base"."$fasta_postfix";
+			my $seq_id_fasta_file = "$fasta_dir/$seq_name"."$fasta_postfix";
 
 			open($seq_id_fasta_fhs{$seq_id}, '>', $seq_id_fasta_file) or error("$!");
 
 			my $fasta_fh = $seq_id_fasta_fhs{$seq_id};
 
-			print($fasta_fh ">$file_base"."$fasta_postfix\n");
+			print($fasta_fh ">$seq_name\n");
 		}
 	}
 
@@ -877,7 +886,7 @@ sub parse_args {
 				'p|print' => \$print_seq_ids,
 				's|sort' => \$enable_sort,
 				'o|order=s{,}' => \@sort_order,
-				'basenames!' => \$use_base_names,
+				'seqnames!' => \$use_seq_names,
 				'i|include=s{,}' => \@includes,
 				'fastadir=s' => \$fasta_dir,
 				'fapostfix=s' => \$fasta_postfix,
@@ -887,6 +896,7 @@ sub parse_args {
 				'g|gfa=s' => \$gfa_file,
 				'gfapostfix=s' => \$gfa_postfix,
 				'v|vg=s' => \$vg_path,
+				'catgfapaths' => \$cat_gfa_paths,
 				't|threads=i' => \$threads,
 				'n|null=s' => \$null_record,
 				'h|help' => \$help) or error('cannot parse arguments');
@@ -973,7 +983,7 @@ Brian Abernathy
 
 =head2 processing
 
- -p --print    print xmfa seq ids, file and base names, then exit
+ -p --print    print xmfa seq ids, names and files, then exit
 
  -s --sort     enable block sorting
 
@@ -983,11 +993,11 @@ Brian Abernathy
                  example: --order 2 3 1 (sort by 2, then 3, then 1)
                  example: --order 3 (sort by 3, then 1, then 2)
 
- --nobasenames disable use of base names in fasta and gfa files
-                 By default, base names (viewed using -p option)
+ --noseqnames  disable use of seq names in fasta and gfa files
+                 By default, seq names (viewed using -p option)
                  are used to name output fasta files and gfa path
-                 records. The --nobasenames option will disable
-                 the use of base names and use seq ids instead.
+                 records. The --noseqnames option will disable
+                 the use of seq names and use seq ids instead.
 
  -i --include  include only specified seq ids in output
                  default: include all
@@ -1010,6 +1020,10 @@ Brian Abernathy
 
  -v --vg       path to vg executable (required for gfa processing)
                  default: autodetect in $PATH (if available)
+
+ --catgfapaths concatenate gfa paths with the same gfa name
+                 default: output separate path records for each
+                 block
 
  -c --coords   output fasta coords file
                  specifying a fasta coords file will generate
