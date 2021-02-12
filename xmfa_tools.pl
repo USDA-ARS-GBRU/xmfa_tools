@@ -718,7 +718,7 @@ sub proc_gfa_block {
 			my $path_name = "$seq_id";
 
 			if ($use_base_names == 1 && exists($seq_base_names{$seq_id})) {
-            	$path_name .= ":$seq_base_names{$seq_id}";
+            	$path_name = "$seq_base_names{$seq_id}";
 			}
 
 			if (defined($gfa_postfix)) {
@@ -789,8 +789,7 @@ sub parse_xmfa_header {
 			$seq_base_names{$seq_id} = $base_name;
 
 			if (defined($print_seq_ids)) {
-				print(STDOUT "id: $seq_id\tseq file: $header_val\n");
-				print(STDOUT "id: $seq_id\tbase name: $base_name\n");
+				print(STDOUT "id: $seq_id\tbase name: $base_name\tseq file: $header_val\n");
 			}
 		}
 
