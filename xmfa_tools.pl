@@ -230,6 +230,8 @@ sub print_blocks {
 
 				$wrapped_seq =~ s/.{72}\K/\n/g;
 
+				chomp($wrapped_seq);
+
 				print($block_fasta_fh "$header\n$wrapped_seq\n");
 
 				$gfa_path_blocks{$seq_id}{$xmfa_start} = $block_id;
@@ -272,6 +274,8 @@ sub print_blocks {
 
 				$seq =~ s/.{72}\K/\n/g;
 
+				chomp($seq);
+
 				print($sorted_xmfa_fh "$header\n$seq\n");
 			}
 
@@ -299,6 +303,8 @@ sub print_blocks {
 			my $wrapped_seq = $fasta_seq{$seq_id};
 
 			$wrapped_seq =~ s/.{72}\K/\n/g;
+
+			chomp($wrapped_seq);
 
 			print($fasta_fh "$wrapped_seq");
 
@@ -785,6 +791,7 @@ sub parse_xmfa_header {
 
 			$base_name =~ s/^.*\///;
 			$base_name =~ s/\.f[ast]*a//;
+			$base_name =~ s/\s+/_/g;
 
 			if ($use_seq_names == 1 && exists($base_names{$base_name})) {
 				print(STDOUT "duplicate base name: $base_name found, use of base names in output disabled\n");
