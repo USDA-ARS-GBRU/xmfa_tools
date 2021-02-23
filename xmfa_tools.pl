@@ -228,6 +228,7 @@ sub print_blocks {
 				my $header = ">$seq_id:$xmfa_start-$xmfa_stop:$xmfa_strand";
 				my $wrapped_seq = $seq;
 
+				$wrapped_seq =~ s/[^acgtnACGTN-]/N/g;
 				$wrapped_seq =~ s/.{72}\K/\n/g;
 
 				chomp($wrapped_seq);
