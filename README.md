@@ -3,8 +3,8 @@
 ### xmfa_tools.pl
 Description:
 
-    sort XMFA file by block (LCB) and generate gapped fasta
-    files with fasta/xmfa coordinates
+    sort XMFA file by block (LCB) to generate gapped fasta
+    files with fasta/xmfa coordinates and/or vg-based gfa files
 
     This is accomplished by defining a multi-pass sort using
     sequence IDs found in the XMFA header. The primary sort
@@ -94,3 +94,65 @@ Options:
   help:
 
      -h --help     display help menu
+
+---
+
+### xmfa_graph_cov.pl
+
+Description:
+
+   Step through xmfa file(s) and report graph node/segment coverage for
+   each pack file at specified sampling intervals.
+
+Usage:
+
+  xmfa_graph_cov.pl [options] > graph.cov
+
+Options:
+
+  general options:
+
+     -x --xmfa      xmfa file(s)
+                      ex: -x sample1.xmfa sample2.xmfa
+
+     --xmfalist     text file containing list of xmfa file paths
+                      1 xmfa file per line
+
+    1 or more xmfa files must be specified using -x/--xmfa and/or
+    --xmfalist.
+
+     -g --gfa       gfa file, vg-based (required)
+
+     --interval     xmfa sampling interval in bp (sample coverage
+                      every X multiple alignment columns)
+                      defautl: 50
+
+     -c --cov       minimum node coverage
+                      do not report nodes falling below threshold
+                      default: 0
+
+     -p --pack      vg pack table or segment coverage file(s)
+                      ex: -p sample1.pack.table sample2.pack.table
+
+     --packlist     text file containing list of pack file paths
+                      pack names (found in output header) may optionally
+                      be specified in the second field
+                      1 pack file (and name) per line, tab-delimited
+
+    1 or more pack (table or segment coverage) files must be specified using
+    -p/--pack and/or --packlist. Pack table files are generated using the
+    `vg pack -d` command. Pack segment coverage files are generated using
+    pack_table_to_seg_cov.pl, which is part of the gfa_var_genotyper
+    project. (https://github.com/brianabernathy/gfa_var_genotyper) Pack
+    files may be uncompressed or compressed using either gzip or bzip2. (.gz
+    or .bz2 file extension)
+
+    Note that pack names (found in output header) are automatically
+    extracted from pack file names by removing all trailing characters after
+    the first '.' or '_'. If you prefer to specify pack names, the
+    --packlist option must be used, with names appearing in the file's
+    second field.
+
+  help:
+
+     -h --help      display help menu
