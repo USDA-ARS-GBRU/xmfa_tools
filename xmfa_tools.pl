@@ -189,7 +189,7 @@ sub print_blocks {
 		my $gfa_seq_count = 0;
 
 		if (defined($gfa_file)) {
-            open($block_fasta_fh, '>', $block_fasta_file) or error("$!");
+            open($block_fasta_fh, '>', $block_fasta_file) or error("can't open block fasta file: $!");
         }
 
 
@@ -454,7 +454,7 @@ sub get_block_order_index {
 
 
 sub parse_blocks {
-	open(XMFA, '<', $xmfa_file) or error("$!");
+	open(XMFA, '<', $xmfa_file) or error("can't open xmfa file: $!");
 
 	my $block_id = 1;
 	my $valid_seq = 0;
@@ -694,7 +694,7 @@ sub proc_gfa_block {
 	system($cmd);
 
 
-	open(GFA, '<', "$block_file_prefix.gfa") or error("$!");
+	open(GFA, '<', "$block_file_prefix.gfa") or error("can't open gfa file: $!");
 
 	while (my $line = <GFA>) {
 		chomp($line);
@@ -757,15 +757,15 @@ sub open_fhs {
 	my $gfa_fh;
 
 	if (defined($coords_file)) {
-		open($coords_fh, '>', $coords_file) or error("$!");
+		open($coords_fh, '>', $coords_file) or error("can't open coords file: $!");
 	}
 
 	if (defined($sorted_xmfa_file)) {
-		open($sorted_xmfa_fh, '>', $sorted_xmfa_file) or error("$!");
+		open($sorted_xmfa_fh, '>', $sorted_xmfa_file) or error("can't open sorted xmfa file: $!");
 	}
 
 	if (defined($gfa_file)) {
-		open($gfa_fh, '>', $gfa_file) or error("$!");
+		open($gfa_fh, '>', $gfa_file) or error("can't open gfa file: $!");
 	}
 
 	return($coords_fh, $sorted_xmfa_fh, $gfa_fh);
@@ -777,7 +777,7 @@ sub parse_xmfa_header {
 	my %base_names = ();
 	my %seq_base_names = ();
 
-	open(XMFA, '<', $xmfa_file) or error("$!");
+	open(XMFA, '<', $xmfa_file) or error("can't open xmfa file: $!");
 
 	while (my $line = <XMFA>) {
 		if ($line =~ /^#Sequence(\d+)File/) {
@@ -835,7 +835,7 @@ sub parse_xmfa_header {
 		if (defined($coords_file)) {
 			my $seq_id_fasta_file = "$fasta_dir/$seq_name"."$fasta_postfix";
 
-			open($seq_id_fasta_fhs{$seq_id}, '>', $seq_id_fasta_file) or error("$!");
+			open($seq_id_fasta_fhs{$seq_id}, '>', $seq_id_fasta_file) or error("can't open fasta file: $!");
 
 			my $fasta_fh = $seq_id_fasta_fhs{$seq_id};
 
