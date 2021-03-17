@@ -59,7 +59,11 @@ Options:
 
   output:
 
+     --xmfaout     output xmfa file (requires -s/--sort or
+                     -i/--include)
+
      --xmfasort    output sorted xmfa file
+                     deprecated: use --xmfaout with -s/--sort
 
      -g --gfa      output gfa file (vg-based, similar to v1 spec)
 

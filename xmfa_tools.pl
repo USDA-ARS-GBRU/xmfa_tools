@@ -17,6 +17,7 @@ my $fasta_postfix = '.sort.gapped.fa';
 my $fasta_linker;
 my $coords_file;
 my $sorted_xmfa_file;
+my $output_xmfa_file;
 my $gfa_file;
 my $use_seq_names = 1;
 my $gfa_postfix;
@@ -45,7 +46,7 @@ my $vg_tmp_dir = "vg.tmp.$vg_rand";
 
 parse_args();
 parse_xmfa_header();
-my ($coords_fh, $sorted_xmfa_fh, $gfa_fh) = open_fhs();
+my ($coords_fh, $output_xmfa_fh, $gfa_fh) = open_fhs();
 parse_blocks();
 
 if ($enable_sort) {
@@ -262,7 +263,9 @@ sub print_blocks {
 			}
 		}
 
-		if (defined($sorted_xmfa_file)) {
+		if (defined($output_xmfa_file)) {
+			my $block_seq_count = 0;
+
 			foreach my $block_seq_index (sort { $a <=> $b } keys %{$block_seq_order{$block_id}}) {
 				my $seq_id = $block_seq_order{$block_id}{$block_seq_index};
 
@@ -277,10 +280,13 @@ sub print_blocks {
 
 				chomp($seq);
 
-				print($sorted_xmfa_fh "$header\n$seq\n");
+				print($output_xmfa_fh "$header\n$seq\n");
+				$block_seq_count++;
 			}
 
-			print($sorted_xmfa_fh "=\n");
+			if ($block_seq_count > 0) {
+				print($output_xmfa_fh "=\n");
+			}
 		}
 
 		if (defined($coords_file)) {
@@ -467,8 +473,8 @@ sub parse_blocks {
 		chomp($line);
 
 		if ($line =~ /^#/) {
-			if (defined($sorted_xmfa_file)) {
-				print($sorted_xmfa_fh "$line\n");
+			if (defined($output_xmfa_file)) {
+				print($output_xmfa_fh "$line\n");
 			}
 		}
 
@@ -753,22 +759,22 @@ sub proc_gfa_block {
 
 sub open_fhs {
 	my $coords_fh;
-	my $sorted_xmfa_fh;
+	my $output_xmfa_fh;
 	my $gfa_fh;
 
 	if (defined($coords_file)) {
 		open($coords_fh, '>', $coords_file) or error("can't open coords file: $!");
 	}
 
-	if (defined($sorted_xmfa_file)) {
-		open($sorted_xmfa_fh, '>', $sorted_xmfa_file) or error("can't open sorted xmfa file: $!");
+	if (defined($output_xmfa_file)) {
+		open($output_xmfa_fh, '>', $output_xmfa_file) or error("can't open output xmfa file: $!");
 	}
 
 	if (defined($gfa_file)) {
 		open($gfa_fh, '>', $gfa_file) or error("can't open gfa file: $!");
 	}
 
-	return($coords_fh, $sorted_xmfa_fh, $gfa_fh);
+	return($coords_fh, $output_xmfa_fh, $gfa_fh);
 }
 
 
@@ -901,6 +907,7 @@ sub parse_args {
 				'l|linker=s' => \$fasta_linker,
 				'c|coords=s' => \$coords_file,
 				'xmfasort=s' => \$sorted_xmfa_file,
+				'xmfaout=s' => \$output_xmfa_file,
 				'g|gfa=s' => \$gfa_file,
 				'gfapostfix=s' => \$gfa_postfix,
 				'v|vg=s' => \$vg_path,
@@ -917,12 +924,25 @@ sub parse_args {
 		arg_error('xmfa file required');
 	}
 
-	if (! defined($print_seq_ids) && ! defined($sorted_xmfa_file) && ! defined($gfa_file) && ! defined($coords_file)) {
+	if (! defined($print_seq_ids) && ! defined($output_xmfa_file) && ! defined($gfa_file) && ! defined($coords_file)) {
 		arg_error('at least one output file must be specified');
 	}
 
-	if (defined($sorted_xmfa_file) && ! defined($enable_sort)) {
+	if (defined($sorted_xmfa_file)) {
+		print(STDERR "--xmfasort deprecated: use --xmfaout with -s/--sort\n");
+
+		if (defined($output_xmfa_file) && $sorted_xmfa_file ne $output_xmfa_file) {
+			arg_error("sorted xmfa file: $sorted_xmfa_file is different from output xmfa file: $output_xmfa_file, writing output xmfa to: $output_xmfa_file");
+		}
+
+		$output_xmfa_file = $sorted_xmfa_file;
 		$enable_sort = 1;
+	}
+
+	if (defined($output_xmfa_file)) {
+		if (! defined($enable_sort) && (! @includes)) {
+			arg_error('--xmfaout requires either -s/--sort or -i/--include');
+		}
 	}
 
 	foreach my $include (@includes) {
@@ -952,14 +972,14 @@ sub parse_args {
 			chomp($vg_path);
 
 			if (! defined($vg_path) || $vg_path eq '') {
-				error("vg not found in \$PATH, specify using -v/--vg option");
+				error('vg not found in $PATH, specify using -v/--vg option');
 			}
 
 			print(STDOUT "using vg found at $vg_path\n");
 		}
 
 		if (defined($threads) && $threads < 1) {
-			error("number of threads must be a positive integer");
+			error('number of threads must be a positive integer');
 		}
 	}
 }
@@ -1018,7 +1038,11 @@ Brian Abernathy
 
 =head2 output
 
+ --xmfaout     output xmfa file (requires -s/--sort or
+                 -i/--include)
+
  --xmfasort    output sorted xmfa file
+                 deprecated: use --xmfaout with -s/--sort
 
  -g --gfa      output gfa file (vg-based, similar to v1 spec)
 
