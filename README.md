@@ -42,6 +42,13 @@ Options:
                      example: --order 2 3 1 (sort by 2, then 3, then 1)
                      example: --order 3 (sort by 3, then 1, then 2)
 
+     --nogapfilter disable invalid gap filter
+                     default: invalid gap filtering is enabled
+                     invalid gap example:
+                     ACTAGCTGATG--------CTGACGTAATCGTGATGATCGATGCTGA
+                     ACTAGCTGATGCTGACGTA--------ATCGTGATGATCGATGCTGA
+                     ACTAGCTGATGCTGACGTA--------ATCGTGATGATCGATGCTGA
+
      --noseqnames  disable use of seq names in fasta and gfa files
                      By default, seq names (viewed using -p option)
                      are used to name output fasta files and gfa path

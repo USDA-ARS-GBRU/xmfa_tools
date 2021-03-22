@@ -8,7 +8,8 @@ use warnings;
 
 my $xmfa_file;
 my $print_seq_ids;
-my $enable_sort;
+my $enable_sort = 0;
+my $enable_gap_filter = 1;
 my @sort_order = ();
 my @includes = ();
 my %includes = ();
@@ -49,7 +50,11 @@ parse_xmfa_header();
 my ($coords_fh, $output_xmfa_fh, $gfa_fh) = open_fhs();
 parse_blocks();
 
-if ($enable_sort) {
+if ($enable_gap_filter == 1) {
+	filter_invalid_gaps();
+}
+
+if ($enable_sort == 1) {
 	set_sort_priorities();
 	orient_blocks();
 	sort_blocks();
@@ -524,6 +529,139 @@ sub parse_blocks {
 }
 
 
+sub filter_invalid_gaps {
+	#ACTAGCTGATG--------CTGACGTAATCGTGATGATCGATGCTGA
+	#ACTAGCTGATGCTGACGTA--------ATCGTGATGATCGATGCTGA
+	#ACTAGCTGATGCTGACGTA--------ATCGTGATGATCGATGCTGA
+
+	foreach my $block_id (sort { $a <=> $b } keys %block_seqs) {
+		my %gap_info = ();
+		my %gap_starts = ();
+		my %gap_stops = ();
+
+		my $block_len = $block_lens{$block_id};
+		my $block_seq_count = 0;
+		my $first_seq_id;
+
+		foreach my $seq_id (sort { $a <=> $b } keys %{$block_seqs{$block_id}}) {
+			if (! defined($first_seq_id)) {
+				$first_seq_id = $seq_id;
+			}
+
+			my @col_bases = split('', $block_seqs{$block_id}{$seq_id});
+
+			my $gap_id = 0;
+			my $gap_start;
+			my $last_col_index;
+
+			foreach my $col_index (0..$#col_bases) {
+				my $col_base = $col_bases[$col_index];
+
+				if ($col_base ne '-') {
+					if (defined($gap_start)) {
+						my $gap_len = $col_index - $gap_start;
+
+						$gap_info{$seq_id}{$gap_id}{'len'} = $gap_len;
+						$gap_info{$seq_id}{$gap_id}{'start'} = $gap_start;
+						$gap_info{$seq_id}{$gap_id}{'stop'} = $col_index - 1;
+						$gap_starts{$seq_id}{$gap_start} = $gap_id;
+						$gap_stops{$seq_id}{$col_index} = $gap_id;
+
+						$gap_id++;
+						$gap_start = undef;
+					}
+				}
+
+				else {
+					if (! defined($gap_start)) {
+						$gap_start = $col_index;
+					}
+				}
+
+				$last_col_index = $col_index;
+			}
+
+			if (defined($gap_start)) {
+				my $gap_len = $last_col_index - $gap_start + 1;
+
+				$gap_info{$seq_id}{$gap_id}{'len'} = $gap_len;
+				$gap_info{$seq_id}{$gap_id}{'start'} = $gap_start;
+				$gap_info{$seq_id}{$gap_id}{'stop'} = $last_col_index;
+				$gap_starts{$seq_id}{$gap_start} = $gap_id;
+				$gap_stops{$seq_id}{$last_col_index} = $gap_id;
+			}
+
+			$block_seq_count++;
+		}
+
+		foreach my $first_seq_gap_id (reverse sort { $a <=> $b } keys %{$gap_info{$first_seq_id}}) {
+			my $gap_len = $gap_info{$first_seq_id}{$first_seq_gap_id}{'len'};
+			my $gap_start = $gap_info{$first_seq_id}{$first_seq_gap_id}{'start'};
+			my $gap_stop = $gap_info{$first_seq_id}{$first_seq_gap_id}{'stop'};
+			my %gap_seq_ids = ();
+			my @check_col_pos = ();
+			my $gap_seq_count = 1;
+
+			$gap_seq_ids{$first_seq_id} = $first_seq_gap_id;
+
+			push(@check_col_pos, $gap_start, $gap_start - 1, $gap_stop + 1);
+
+			foreach my $col_index (@check_col_pos) {
+				if ($gap_seq_count == $block_seq_count) {
+					next();
+				}   
+                    
+				foreach my $seq_id (sort { $a <=> $b } keys %{$block_seqs{$block_id}}) {
+					if (exists($gap_seq_ids{$seq_id})) {
+						next();
+					}
+
+					my $seq_gap_id;
+
+					if (exists($gap_starts{$seq_id}{$col_index})) {
+						$seq_gap_id = $gap_starts{$seq_id}{$col_index};
+					}
+
+					elsif (exists($gap_stops{$seq_id}{$col_index})) {
+						$seq_gap_id = $gap_stops{$seq_id}{$col_index};
+					}
+
+					if (! defined($seq_gap_id)) {
+						next();
+					}
+
+					my $seq_gap_len = $gap_info{$seq_id}{$seq_gap_id}{'len'};
+
+					if ($seq_gap_len != $gap_len) {
+						# gaps must be same length
+						next();
+					}
+
+					$gap_seq_ids{$seq_id} = $seq_gap_id;
+					$gap_seq_count++;
+				}
+			}
+
+			if ($gap_seq_count != $block_seq_count) {
+				next();
+			}
+
+			foreach my $seq_id (keys %gap_seq_ids) {
+				my $gap_id = $gap_seq_ids{$seq_id};
+				my $start = $gap_info{$seq_id}{$gap_id}{'start'};
+				my $stop = $gap_info{$seq_id}{$gap_id}{'stop'};
+				my $len = $stop - $start + 1;
+
+				substr($block_seqs{$block_id}{$seq_id}, $start, $len, '');
+
+			}
+		}
+	}
+
+	return(0);
+}
+
+
 sub set_sort_priorities {
 	foreach my $block_id (keys %block_seqs) {
 		my $sort_priority = 1;
@@ -899,6 +1037,7 @@ sub parse_args {
 	GetOptions ('x|xfma=s' => \$xmfa_file,
 				'p|print' => \$print_seq_ids,
 				's|sort' => \$enable_sort,
+				'gapfilter!' => \$enable_gap_filter,
 				'o|order=s{,}' => \@sort_order,
 				'seqnames!' => \$use_seq_names,
 				'i|include=s{,}' => \@includes,
@@ -940,8 +1079,8 @@ sub parse_args {
 	}
 
 	if (defined($output_xmfa_file)) {
-		if (! defined($enable_sort) && (! @includes)) {
-			arg_error('--xmfaout requires either -s/--sort or -i/--include');
+		if ($enable_sort == 0 && $enable_gap_filter == 0 && (! @includes)) {
+			arg_error('--xmfaout requires either -s/--sort or -i/--include or gap filtering enabled (do not set --nogapfilter)');
 		}
 	}
 
@@ -1020,6 +1159,13 @@ Brian Abernathy
                  default: sort by 1, 2, 3... 
                  example: --order 2 3 1 (sort by 2, then 3, then 1)
                  example: --order 3 (sort by 3, then 1, then 2)
+
+ --nogapfilter disable invalid gap filter
+                 default: invalid gap filtering is enabled
+                 invalid gap example:
+                 ACTAGCTGATG--------CTGACGTAATCGTGATGATCGATGCTGA
+                 ACTAGCTGATGCTGACGTA--------ATCGTGATGATCGATGCTGA
+                 ACTAGCTGATGCTGACGTA--------ATCGTGATGATCGATGCTGA
 
  --noseqnames  disable use of seq names in fasta and gfa files
                  By default, seq names (viewed using -p option)
