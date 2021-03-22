@@ -9,7 +9,7 @@ use warnings;
 my $xmfa_file;
 my $print_seq_ids;
 my $enable_sort = 0;
-my $enable_gap_filter = 1;
+my $enable_invalid_gap_filter = 1;
 my @sort_order = ();
 my @includes = ();
 my %includes = ();
@@ -50,7 +50,7 @@ parse_xmfa_header();
 my ($coords_fh, $output_xmfa_fh, $gfa_fh) = open_fhs();
 parse_blocks();
 
-if ($enable_gap_filter == 1) {
+if ($enable_invalid_gap_filter == 1) {
 	filter_invalid_gaps();
 }
 
@@ -530,9 +530,7 @@ sub parse_blocks {
 
 
 sub filter_invalid_gaps {
-	#ACTAGCTGATG--------CTGACGTAATCGTGATGATCGATGCTGA
-	#ACTAGCTGATGCTGACGTA--------ATCGTGATGATCGATGCTGA
-	#ACTAGCTGATGCTGACGTA--------ATCGTGATGATCGATGCTGA
+	my $invalid_gap_count = 0;
 
 	foreach my $block_id (sort { $a <=> $b } keys %block_seqs) {
 		my %gap_info = ();
@@ -655,8 +653,12 @@ sub filter_invalid_gaps {
 				substr($block_seqs{$block_id}{$seq_id}, $start, $len, '');
 
 			}
+
+			$invalid_gap_count++;
 		}
 	}
+
+	print(STDERR "invalid gaps removed: $invalid_gap_count\n");
 
 	return(0);
 }
@@ -1037,7 +1039,7 @@ sub parse_args {
 	GetOptions ('x|xfma=s' => \$xmfa_file,
 				'p|print' => \$print_seq_ids,
 				's|sort' => \$enable_sort,
-				'gapfilter!' => \$enable_gap_filter,
+				'gapfilter!' => \$enable_invalid_gap_filter,
 				'o|order=s{,}' => \@sort_order,
 				'seqnames!' => \$use_seq_names,
 				'i|include=s{,}' => \@includes,
@@ -1079,7 +1081,7 @@ sub parse_args {
 	}
 
 	if (defined($output_xmfa_file)) {
-		if ($enable_sort == 0 && $enable_gap_filter == 0 && (! @includes)) {
+		if ($enable_sort == 0 && $enable_invalid_gap_filter == 0 && (! @includes)) {
 			arg_error('--xmfaout requires either -s/--sort or -i/--include or gap filtering enabled (do not set --nogapfilter)');
 		}
 	}
