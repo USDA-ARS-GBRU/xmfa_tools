@@ -117,22 +117,25 @@ Description:
 
 Usage:
 
-  xmfa_graph_cov.pl [options] > graph.cov
+    xmfa_graph_cov.pl [options] > graph.packs.cov
 
 Options:
 
   general options:
 
      -x --xmfa      xmfa file(s)
-                      ex: -x sample1.xmfa sample2.xmfa
+                      ex: -x chr01.xmfa chr02.xmfa
 
      --xmfalist     text file containing list of xmfa file paths
                       1 xmfa file per line
 
     1 or more xmfa files must be specified using -x/--xmfa and/or
-    --xmfalist.
+    --xmfalist. Multiple xmfa files are processed sequentially, so
+    it is more efficient to run multiple commands for multiple
+    chromosome genomes. (1 command for each chromosome) Output for
+    multiple chromosomes can be concatenated together, if desired.
 
-     -g --gfa       gfa file, vg-based (required)
+     -g --gfa       genome gfa file, vg-based (required)
 
      --interval     xmfa sampling interval in bp (sample coverage
                       every X multiple alignment columns)
@@ -143,7 +146,7 @@ Options:
                       default: 0
 
      -p --pack      vg pack table or segment coverage file(s)
-                      ex: -p sample1.pack.table sample2.pack.table
+                      ex: -p sample1.pack.table sample2.seg.cov.gz
 
      --packlist     text file containing list of pack file paths
                       pack names (found in output header) may optionally
