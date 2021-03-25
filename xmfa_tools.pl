@@ -42,6 +42,7 @@ my %seq_id_fasta_fhs = ();
 my %gfa_paths = ();
 my %gfa_path_blocks = ();
 my $gfa_offset = 0;
+my $gfa_overlap;
 my $vg_rand = sprintf("%06d", int(rand(999999)));
 my $vg_tmp_dir = "vg.tmp.$vg_rand";
 
@@ -331,7 +332,12 @@ sub print_blocks {
 			my $prev_id;
 			my $prev_strand;
 			my @segs = ();
-			my @matches = ();
+			my @overlaps = ();
+			my $link_overlap = '0M';
+
+			if (defined($gfa_overlap) && $gfa_overlap eq '*') {
+				$link_overlap = '*';
+			}
 
 			if (@includes && ! exists($includes{$seq_id})) {
 				next();
@@ -339,11 +345,11 @@ sub print_blocks {
 
 			foreach my $start (sort { $a <=> $b } keys %{$gfa_paths{$seq_id}}) {
 				my $path_rec = $gfa_paths{$seq_id}{$start};
-				my ($rec_type, $header, $segs, $matches) = split(/\t/, $path_rec);
+				my ($rec_type, $header, $segs, $overlaps) = split(/\t/, $path_rec);
 
 				if (defined($cat_gfa_paths)) {
 					push(@segs, $segs);
-					push(@matches, $matches);
+					push(@overlaps, $overlaps);
 				}
 
 				else {
@@ -364,7 +370,7 @@ sub print_blocks {
 			
 						if (defined($prev_id)) {
 							if (! exists($links{"$prev_id $prev_strand $id $strand"})) {
-								print($gfa_fh join("\t", 'L', $prev_id, $prev_strand, $id, $strand, '0M'), "\n");
+								print($gfa_fh join("\t", 'L', $prev_id, $prev_strand, $id, $strand, $link_overlap), "\n");
 							}
 
 							$links{"$prev_id $prev_strand $id $strand"}++;
@@ -377,7 +383,13 @@ sub print_blocks {
 			}
 
 			if (defined($cat_gfa_paths)) {
-				print($gfa_fh "P\t$seq_names{$seq_id}\t", join(',', @segs), "\t", join(',', @matches), "\n");
+				if (defined($gfa_overlap) && $gfa_overlap eq '*') {
+					undef(@overlaps);
+
+					push(@overlaps, '*');
+				}
+
+				print($gfa_fh "P\t$seq_names{$seq_id}\t", join(',', @segs), "\t", join(',', @overlaps), "\n");
 			}
 		}
 
@@ -835,7 +847,7 @@ sub proc_gfa_block {
 		return(1);
 	}
 
-	my $cmd = "$vg_path construct --threads $threads -M $block_fasta_file | $vg_path ids -i $gfa_offset - | $vg_path view --threads $threads - > $block_file_prefix.gfa 2> $block_file_prefix.vg.stderr";
+	my $cmd = "$vg_path construct -t $threads -M $block_fasta_file 2> $block_file_prefix.vg.construct.stderr | $vg_path ids -i $gfa_offset - | $vg_path view --threads $threads - > $block_file_prefix.gfa 2> $block_file_prefix.vg.view.stderr";
 
 	system($cmd);
 
@@ -856,7 +868,7 @@ sub proc_gfa_block {
 		}
 
 		elsif ($line =~ /^P\t/) {
-			my ($rec_type, $header, $segs, $matches) = split(/\t/, $line);
+			my ($rec_type, $header, $segs, $overlaps) = split(/\t/, $line);
 			my ($seq_id, $start_stop, $strand) = split(':', $header);
 			my ($start, $stop) = split('-', $start_stop);
 
@@ -864,18 +876,24 @@ sub proc_gfa_block {
 				next();
 			}
 
-			if ($segs eq '' || $matches eq '') {
+			if ($segs eq '' || $overlaps eq '') {
 				next();
+			}
+
+			if (! defined($gfa_overlap)) {
+				if ($overlaps eq '*') {
+					$gfa_overlap = '*';
+				}
 			}
 
 			if ($strand eq '-') {
 				$segs =~ tr/\+\-/-+/;
 
 				my @segs = reverse(split(',', $segs));
-				my @matches = reverse(split(',', $matches));
+				my @overlaps = reverse(split(',', $overlaps));
 
 				$segs = join(',', @segs);
-				$matches = join(',', @matches);
+				$overlaps = join(',', @overlaps);
 			}
 
 			my $path_name = $seq_names{$seq_id};
@@ -884,7 +902,7 @@ sub proc_gfa_block {
 				$path_name .= "$gfa_postfix";
 			}
 
-			$gfa_paths{$seq_id}{$start} = join("\t", $rec_type, $path_name, $segs, $matches);
+			$gfa_paths{$seq_id}{$start} = join("\t", $rec_type, $path_name, $segs, $overlaps);
 		}
 	}
 
