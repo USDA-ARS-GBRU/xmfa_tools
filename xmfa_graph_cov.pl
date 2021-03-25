@@ -21,7 +21,7 @@ my @file_bases = ();
 
 parse_args();
 
-print(STDOUT "path_name\tpos\tnode_id\tpack_name\tcov\n");
+print(STDOUT "path_name\tpath_pos\txmfa_col\tnode_id\tpack_name\tcov\n");
 
 foreach my $xmfa_file (@xmfa_files) {
 	parse_xmfa_file($xmfa_file);
@@ -46,6 +46,7 @@ sub parse_xmfa_file {
 	my $block_seq_count = 0;
 	my $block_id = 1;
 	my $valid_seq = 0;
+	my $xmfa_col = -1;
 	my $seq_id;
 	my $pos;
 
@@ -118,9 +119,15 @@ sub parse_xmfa_file {
 				last();
 			}
 
-			my $col_pos = 0;
+			my $block_col = 0;
 
-			while ($col_pos < $block_len) {
+			foreach my $block_col (0..($block_len - 1)) {
+				$xmfa_col++;
+
+				if ($xmfa_col % $sampling_interval != 0) {
+					next();
+				}
+
 				foreach my $seq_id (sort { $a <=> $b } keys %block_seqs) {
 					my $seq_name = $seq_id;
 
@@ -130,12 +137,12 @@ sub parse_xmfa_file {
 
 					my $sub_seq;
 
-					if ($col_pos == 0) {
-						$sub_seq = substr($block_seqs{$seq_id}, $col_pos, 1);
+					if ($block_col == 0) {
+						$sub_seq = substr($block_seqs{$seq_id}, $block_col, 1);
 					}
 
 					else {
-						$sub_seq = substr($block_seqs{$seq_id}, $col_pos - $sampling_interval + 1, $sampling_interval);
+						$sub_seq = substr($block_seqs{$seq_id}, $block_col - $sampling_interval + 1, $sampling_interval);
 					}
 
 					$sub_seq =~ s/\-//g;
@@ -148,7 +155,7 @@ sub parse_xmfa_file {
 
 					$seq_offset{$seq_id} += $sub_seq_len;
 
-					my $col_base = substr($block_seqs{$seq_id}, $col_pos, 1);
+					my $col_base = substr($block_seqs{$seq_id}, $block_col, 1);
 
 					if ($col_base !~ /[acgtACGT]/) {
 						next();
@@ -190,11 +197,9 @@ sub parse_xmfa_file {
 							next();
 						}
 
-						print(STDOUT "$seq_name\t$seq_pos\t$node_id\t$file_base\t$cov\n");
+						print(STDOUT "$seq_name\t$seq_pos\t$xmfa_col\t$node_id\t$file_base\t$cov\n");
 					}
 				}
-
-				$col_pos += $sampling_interval;
 			}
 
 			$block_seq_count = 0;
@@ -553,8 +558,8 @@ multiple chromosomes can be concatenated together, if desired.
 
  -g --gfa       genome gfa file, vg-based (required)
 
- --interval     xmfa sampling interval in bp (sample coverage
-                  every X multiple alignment columns)
+ --interval     xmfa sampling interval (sample coverage every
+                  X multiple alignment columns)
                   defautl: 50
 
  -c --cov       minimum node coverage
