@@ -137,8 +137,8 @@ Options:
 
      -g --gfa       genome gfa file, vg-based (required)
 
-     --interval     xmfa sampling interval in bp (sample coverage
-                      every X multiple alignment columns)
+     --interval     xmfa sampling interval (sample coverage every
+                      X multiple alignment columns)
                       defautl: 50
 
      -c --cov       minimum node coverage
