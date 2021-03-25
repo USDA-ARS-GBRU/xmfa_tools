@@ -179,11 +179,12 @@ sub parse_xmfa_file {
 					my $node_id = $seq_pos_nodes{$seq_name}{$seq_pos};
 
 					foreach my $file_base (@file_bases) {
-						my $cov = $0;
+						my $cov = 0;
 
 						if (defined($node_id) && exists($pack_covs{$node_id}{$file_base})) {
 							$cov = $pack_covs{$node_id}{$file_base};
 						}
+
 
 						if ($cov < $min_cov) {
 							next();
@@ -222,7 +223,7 @@ sub parse_gfa_file {
 	my $use_seq_names = shift();
 
 	my %path_nodes = ();
-	my %path_overlaps = ();
+	my %node_lens = ();
 	my %seq_names = ();
 
 	foreach my $seq_id (keys %$seq_id_names_ref) {
@@ -240,41 +241,66 @@ sub parse_gfa_file {
 	print(STDERR "processing gfa file: $gfa_file\n");
 
 	while (my $line = <GFA>) {
-		if ($line !~ /^P/) {
-			next();
+		if ($line =~ /^P/) {
+			chomp($line);
+
+			my ($rec_type, $path_name, $nodes, $overlaps) = split(/\t/, $line);
+
+			if (! exists($seq_names{$path_name})) {
+				next();
+			}
+
+			my @nodes = split(',', $nodes);
+
+			foreach my $node (@nodes) {
+				$node =~ s/[\-\+]$//;
+				$node_lens{$node} = 0;
+			}
+
+			push(@{$path_nodes{$path_name}}, @nodes);
 		}
-
-		chomp($line);
-
-		my ($rec_type, $path_name, $nodes, $overlaps) = split(/\t/, $line);
-
-		if (! exists($seq_names{$path_name})) {
-			next();
-		}
-
-		my @nodes = split(',', $nodes);
-		my @overlaps = split(',', $overlaps);
-
-		push(@{$path_nodes{$path_name}}, @nodes);
-		push(@{$path_overlaps{$path_name}}, @overlaps);
 	}
 
 	close(GFA);
+
+
+	open(GFA, '<', $gfa_file) or error("can't open gfa file: $!");
+
+	while (my $line = <GFA>) {
+		if ($line =~ /^S/) {
+			chomp($line);
+
+			my ($rec_type, $node, $seq) = split(/\t/, $line);
+
+			if (exists($node_lens{$node}) && defined($seq)) {
+				$node_lens{$node} = length($seq);
+			}
+		}
+	}
+
+	close(GFA);
+
 
 	foreach my $path_name (keys %path_nodes) {
 		my $path_pos = 0;
 
 		foreach my $index (0..$#{$path_nodes{$path_name}}) {
-			my $overlap = $path_overlaps{$path_name}[$index];
 			my $node = $path_nodes{$path_name}[$index];
 
-			$overlap =~ s/M$//;
 			$node =~ s/[\-\+]$//;
+
+			if (! exists($node_lens{$node})) {
+				print(STDERR "node: $node length not found\n");
+
+				next();
+			}
+
+			my $len = $node_lens{$node};
 
 			$$xmfa_nodes_ref{$node}++;
 
 			my $start_pos = $path_pos + 1;
-			my $stop_pos = $path_pos + $overlap;
+			my $stop_pos = $path_pos + $len;
 
 			if ($stop_pos < $start_pos) {
 				next();
@@ -498,7 +524,7 @@ xmfa_graph_cov.pl
 
 =head1 SYNOPSIS
 
-xmfa_graph_cov.pl [options] > graph.cov
+xmfa_graph_cov.pl [options] > graph.packs.cov
 
 =head1 DESCRIPTION
 
@@ -514,15 +540,18 @@ Brian Abernathy
 =head2 general options
 
  -x --xmfa      xmfa file(s)
-                  ex: -x sample1.xmfa sample2.xmfa
+                  ex: -x chr01.xmfa chr02.xmfa
 
  --xmfalist     text file containing list of xmfa file paths
                   1 xmfa file per line
 
 1 or more xmfa files must be specified using -x/--xmfa and/or
---xmfalist.
+--xmfalist. Multiple xmfa files are processed sequentially, so
+it is more efficient to run multiple commands for multiple
+chromosome genomes. (1 command for each chromosome) Output for
+multiple chromosomes can be concatenated together, if desired.
 
- -g --gfa       gfa file, vg-based (required)
+ -g --gfa       genome gfa file, vg-based (required)
 
  --interval     xmfa sampling interval in bp (sample coverage
                   every X multiple alignment columns)
@@ -533,7 +562,7 @@ Brian Abernathy
                   default: 0
 
  -p --pack      vg pack table or segment coverage file(s)
-                  ex: -p sample1.pack.table sample2.pack.table
+                  ex: -p sample1.pack.table sample2.seg.cov.gz
 
  --packlist     text file containing list of pack file paths
                   pack names (found in output header) may optionally
