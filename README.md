@@ -112,8 +112,7 @@ Options:
 
 Description:
 
-   Step through xmfa file(s) and report graph node/segment coverage for
-   each pack file at specified sampling intervals.
+xmfa_tools.pl can be used to create GFA sequence graphs from XMFA multi-sequence alignments. These GFA graphs are then used for aligning short or long reads. xmfa_graph_cov.pl is used to report the coverage of segments/nodes belonging to each path in the graph as they relate to the original multi-sequence alignment.  xmfa_graph_cov.pl requires at least one chromosome multi-sequence alignment (XMFA) as well as the entire combined (genome) graph used for read mapping. In addition, a pack (coverage) table derived from GAM alignments to the given graph must also be supplied.  The output is an R data frame that can be used to plot relative coverage.
 
 Usage:
 
