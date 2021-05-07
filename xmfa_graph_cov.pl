@@ -13,6 +13,7 @@ my @pack_files = ();
 my $pack_list_file;
 my $vg_path;
 my $sampling_interval = 50;
+my $edge_cov = 0;
 my $min_cov = 0;
 my $help;
 
@@ -183,13 +184,28 @@ sub parse_xmfa_file {
 						next();
 					}
 
-					my $node_id = $seq_pos_nodes{$seq_name}{$seq_pos};
+					my ($node_id, $node_index);
+
+					if ($edge_cov) {
+						$node_id = $seq_pos_nodes{$seq_name}{$seq_pos};
+						$node_index = 0;
+					}
+
+					else {
+						($node_id, $node_index) = split(/\t/, $seq_pos_nodes{$seq_name}{$seq_pos});
+					}
 
 					foreach my $file_base (@file_bases) {
 						my $cov = 0;
 
 						if (defined($node_id) && exists($pack_covs{$node_id}{$file_base})) {
-							$cov = $pack_covs{$node_id}{$file_base};
+							$cov = ${$pack_covs{$node_id}{$file_base}}[$node_index];
+
+							if (! defined($cov)) {
+								print(STDERR "coverage not defined for node id: $node_id, pack: $file_base, index: $node_index\n");
+
+								next();
+							}
 						}
 
 
@@ -311,8 +327,17 @@ sub parse_gfa_file {
 				next();
 			}
 
+			my $index = 0;
+
 			foreach my $pos ($start_pos..$stop_pos) {
-				$$seq_pos_nodes_ref{$path_name}{$pos} = $node;
+				if ($edge_cov) {
+					$$seq_pos_nodes_ref{$path_name}{$pos} = "$node";
+				}
+
+				else {
+					$$seq_pos_nodes_ref{$path_name}{$pos} = "$node\t$index";
+					$index++;
+				}
 			}
 
 			$path_pos = $stop_pos;
@@ -330,9 +355,6 @@ sub parse_pack_file {
 	my $xmfa_nodes_ref = shift();
 	my $pack_covs_ref = shift();
 
-	my $prev_node_id;
-	my $seg_len = 0;
-	my $seg_cov = 0;
 	my $file_base = $pack_file;
 
 	my $pack_fh;
@@ -365,20 +387,20 @@ sub parse_pack_file {
 	while (my $line = <$pack_fh>) {
 		chomp($line);
 
-		if ($line =~ /^seq\.pos/) {
+		if ($line =~ /^seq\.pos\tnode\.id/) {
 			$file_type = 'pos_cov';
 
 			next();
 		}
 
-		elsif ($line =~ /^node\.id/) {
+		elsif ($line =~ /^node\.id\tpos\.covs/) {
 			$file_type = 'seg_cov';
 
 			next();
 		}
 
 		if (! defined($file_type)) {
-			error("invalid record found in pack file: $pack_file\n\t$line");
+			error("invalid pack/seg cov file format: $pack_file\n");
 		}
 
 		if ($file_type eq 'pos_cov') {
@@ -388,41 +410,37 @@ sub parse_pack_file {
 				next();
 			}
 
-			if (defined($prev_node_id) && $node_id ne $prev_node_id) {
-				if ($seg_len > 0) {
-					my $avg_cov = int(($seg_cov / $seg_len) + 0.5);
-
-					$$pack_covs_ref{$prev_node_id}{$file_base} = $avg_cov;
+			if ($edge_cov) {
+				if ($node_offset == 0) {
+					push(@{$$pack_covs_ref{$node_id}{$file_base}}, $cov);
 				}
-
-				$seg_len = 0;
-				$seg_cov = 0;
 			}
 
-			$seg_cov += $cov;
-			$seg_len++;
-			$prev_node_id = $node_id;
+			else {
+				push(@{$$pack_covs_ref{$node_id}{$file_base}}, $cov);
+			}
 		}
 
 		elsif ($file_type eq 'seg_cov') {
-			my ($node_id, $len, $cov) = split(/\t/, $line);
+			my ($node_id, $covs) = split(/\t/, $line);
 
 			if (! exists($$xmfa_nodes_ref{$node_id})) {
 				next();
 			}
 
-			$$pack_covs_ref{$node_id}{$file_base} = $cov;
+			if ($edge_cov) {
+				$covs =~ s/\,.*$//;
+
+				push(@{$$pack_covs_ref{$node_id}{$file_base}}, $covs);
+			}
+
+			else {
+				push(@{$$pack_covs_ref{$node_id}{$file_base}}, split(',', $covs));
+			}
 		}
 	}
 
 	close($pack_fh);
-
-
-	if ($file_type eq 'pos_cov' && defined($prev_node_id) && $seg_len > 0) {
-		my $avg_cov = int(($seg_cov / $seg_len) + 0.5); 
-
-		$$pack_covs_ref{$prev_node_id}{$file_base} = $avg_cov;
-	}
 
 	return(0);
 }
@@ -464,6 +482,7 @@ sub parse_args {
 				'p|pack=s{,}' => \@pack_files,
 				'packlist=s' => \$pack_list_file,
 				'interval=i' => \$sampling_interval,
+				'e|edge' => \$edge_cov,
 				'c|cov=i' => \$min_cov,
 				'h|help' => \$help) or error('cannot parse arguments');
 
@@ -561,6 +580,10 @@ multiple chromosomes can be concatenated together, if desired.
  --interval     xmfa sampling interval (sample coverage every
                   X multiple alignment columns)
                   defautl: 50
+
+ -e --edge      report leading edge coverage (instead of actual
+                  node position coverage)
+                  default: disabled
 
  -c --cov       minimum node coverage
                   do not report nodes falling below threshold
