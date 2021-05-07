@@ -140,6 +140,10 @@ Options:
                       X multiple alignment columns)
                       defautl: 50
 
+     -e --edge      report leading edge coverage (instead of actual
+                      node position coverage)
+                      default: disabled
+
      -c --cov       minimum node coverage
                       do not report nodes falling below threshold
                       default: 0
