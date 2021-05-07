@@ -581,8 +581,8 @@ multiple chromosomes can be concatenated together, if desired.
                   X multiple alignment columns)
                   defautl: 50
 
- -e --edge      report leading edge coverage (instead of actual
-                  node position coverage)
+ -e --edge      report node leading edge coverage (instead of node
+                  position coverage)
                   default: disabled
 
  -c --cov       minimum node coverage
