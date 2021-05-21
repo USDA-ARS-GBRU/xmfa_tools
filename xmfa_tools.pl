@@ -10,6 +10,8 @@ my $xmfa_file;
 my $print_seq_ids;
 my $enable_sort = 0;
 my $enable_invalid_gap_filter = 1;
+my $invalid_gap_min_pct_id = 0.7;
+my $invalid_gap_max_gap_pct = 0.05;
 my @sort_order = ();
 my @includes = ();
 my %includes = ();
@@ -548,6 +550,7 @@ sub filter_invalid_gaps {
 		my %gap_info = ();
 		my %gap_starts = ();
 		my %gap_stops = ();
+		my %max_gap_ids = ();
 
 		my $block_len = $block_lens{$block_id};
 		my $block_seq_count = 0;
@@ -601,6 +604,7 @@ sub filter_invalid_gaps {
 				$gap_stops{$seq_id}{$last_col_index} = $gap_id;
 			}
 
+			$max_gap_ids{$seq_id} = $gap_id;
 			$block_seq_count++;
 		}
 
@@ -608,6 +612,10 @@ sub filter_invalid_gaps {
 			my $gap_len = $gap_info{$first_seq_id}{$first_seq_gap_id}{'len'};
 			my $gap_start = $gap_info{$first_seq_id}{$first_seq_gap_id}{'start'};
 			my $gap_stop = $gap_info{$first_seq_id}{$first_seq_gap_id}{'stop'};
+			my $gap_min = $gap_start;
+			my $gap_max = $gap_stop;
+			my %nested_gap_check_seq_ids = ();
+			my %non_nested_gap_seq_ids = ();
 			my %gap_seq_ids = ();
 			my @check_col_pos = ();
 			my $gap_seq_count = 1;
@@ -630,10 +638,44 @@ sub filter_invalid_gaps {
 
 					if (exists($gap_starts{$seq_id}{$col_index})) {
 						$seq_gap_id = $gap_starts{$seq_id}{$col_index};
+
+						if ($gap_info{$seq_id}{$seq_gap_id}{'len'} > $gap_len) {
+							$nested_gap_check_seq_ids{$seq_id}++;
+
+							next();
+						}
+
+						else {
+							my $test_gap_stop = $gap_info{$seq_id}{$seq_gap_id}{'stop'};
+							$non_nested_gap_seq_ids{$seq_id} = $seq_gap_id;
+
+							if ($test_gap_stop > $gap_max) {
+								$gap_max = $test_gap_stop;
+							}
+						}
 					}
 
 					elsif (exists($gap_stops{$seq_id}{$col_index})) {
 						$seq_gap_id = $gap_stops{$seq_id}{$col_index};
+
+						if ($gap_info{$seq_id}{$seq_gap_id}{'len'} > $gap_len) {
+							$nested_gap_check_seq_ids{$seq_id}++;
+
+							next();
+						}
+
+						else {
+							my $test_gap_start = $gap_info{$seq_id}{$seq_gap_id}{'start'};
+							$non_nested_gap_seq_ids{$seq_id} = $seq_gap_id;
+
+							if ($test_gap_start < $gap_min) {
+								$gap_min = $test_gap_start;
+							}
+						}
+					}
+
+					else {
+						$nested_gap_check_seq_ids{$seq_id}++;
 					}
 
 					if (! defined($seq_gap_id)) {
@@ -652,25 +694,121 @@ sub filter_invalid_gaps {
 				}
 			}
 
+			# gaps found on both sides of first seq gap
+			if ($gap_min < $gap_start && $gap_max > $gap_stop) {
+				next();
+			}
+
+			# check for nested gaps
+			if ($gap_seq_count > 1) {
+				foreach my $seq_id (keys %nested_gap_check_seq_ids) {
+					my $count = $nested_gap_check_seq_ids{$seq_id};
+
+					if ($count < 3) {
+						next();
+					}
+
+					foreach my $start_col (keys %{$gap_starts{$seq_id}}) {
+						if ($start_col <= $gap_min) {
+							my $gap_id = $gap_starts{$seq_id}{$start_col};
+							my $stop_col = $gap_info{$seq_id}{$gap_id}{'stop'};
+
+							if ($stop_col >= $gap_max) {
+								my $new_gap_id = $max_gap_ids{$seq_id} + 1;
+								$max_gap_ids{$seq_id} = $new_gap_id;
+								$gap_info{$seq_id}{$new_gap_id}{'start'} = $gap_start;
+								$gap_info{$seq_id}{$new_gap_id}{'stop'} = $gap_stop;
+								$gap_info{$seq_id}{$new_gap_id}{'len'} = $gap_len;
+								$gap_seq_ids{$seq_id} = $new_gap_id;
+								$gap_seq_count++;
+							}
+						}
+					}
+				}
+			}
+
 			if ($gap_seq_count != $block_seq_count) {
 				next();
 			}
 
-			foreach my $seq_id (keys %gap_seq_ids) {
+
+			# check seq id adjacent to invalid gaps
+			my $first_seq_start;
+
+			if ($gap_start == $gap_min) {
+				$first_seq_start = $gap_stop + 1;
+			}
+
+			else {
+				$first_seq_start = $gap_start - $gap_len;
+			}
+
+
+			my $first_seq = substr($block_seqs{$block_id}{$first_seq_id}, $first_seq_start, $gap_len);
+			my @first_seqs = split('', $first_seq);
+			my $fail_seq_id = 0;
+
+			foreach my $seq_id (keys %non_nested_gap_seq_ids) {
+				my $test_gap_id = $non_nested_gap_seq_ids{$seq_id};
+				my $test_gap_start = $gap_info{$seq_id}{$test_gap_id}{'start'};
+				my $test_gap_stop = $gap_info{$seq_id}{$test_gap_id}{'stop'};
+				my $test_seq_start;
+
+				if ($test_gap_start == $gap_min) {
+					$test_seq_start = $test_gap_stop + 1;
+				}
+
+				else {
+					$test_seq_start = $test_gap_start - $gap_len;
+				}
+
+				my $test_seq = substr($block_seqs{$block_id}{$seq_id}, $test_seq_start, $gap_len);
+				my $test_seq_gaps = () = $test_seq =~ /-/g;
+				my $test_seq_gap_pct = $test_seq_gaps / length($test_seq);
+				
+				if ($test_seq_gap_pct > $invalid_gap_max_gap_pct) {
+					$fail_seq_id = 1;
+
+					last();
+				}
+
+				my @test_seqs = split('', $test_seq);
+				my $mismatches = 0;
+
+				foreach my $index (0..$#first_seqs) {
+					if ($first_seqs[$index] ne $test_seqs[$index]) {
+						$mismatches++;
+					}
+				}
+
+				my $test_seq_pct_id = ($gap_len - $mismatches) / $gap_len;
+
+				if ($test_seq_pct_id < $invalid_gap_min_pct_id) {
+					$fail_seq_id = 1;
+
+					last();
+				}
+			}
+
+			if ($fail_seq_id == 1) {
+				next();
+			}
+
+
+			foreach my $seq_id (sort keys %gap_seq_ids) {
 				my $gap_id = $gap_seq_ids{$seq_id};
 				my $start = $gap_info{$seq_id}{$gap_id}{'start'};
 				my $stop = $gap_info{$seq_id}{$gap_id}{'stop'};
-				my $len = $stop - $start + 1;
+				my $len = $gap_info{$seq_id}{$gap_id}{'len'};
 
 				substr($block_seqs{$block_id}{$seq_id}, $start, $len, '');
-
 			}
 
 			$invalid_gap_count++;
 		}
 	}
 
-	print(STDERR "invalid gaps removed: $invalid_gap_count\n");
+	print(STDERR "invalid gaps corrected: $invalid_gap_count\n");
 
 	return(0);
 }
