@@ -545,6 +545,7 @@ sub parse_blocks {
 
 sub filter_invalid_gaps {
 	my $invalid_gap_count = 0;
+	my $invalid_gap_cols = 0;
 
 	foreach my $block_id (sort { $a <=> $b } keys %block_seqs) {
 		my %gap_info = ();
@@ -805,10 +806,12 @@ sub filter_invalid_gaps {
 			}
 
 			$invalid_gap_count++;
+			$invalid_gap_cols += $gap_len;
 		}
 	}
 
 	print(STDERR "invalid gaps corrected: $invalid_gap_count\n");
+	print(STDERR "invalid gap MSA columns corrected: $invalid_gap_cols\n");
 
 	return(0);
 }
