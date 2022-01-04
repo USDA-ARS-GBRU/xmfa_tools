@@ -808,7 +808,7 @@ sub filter_invalid_gaps {
 			$invalid_gap_count++;
 			$invalid_gap_cols += $gap_len;
 
-			print(STDERR "invalid gap found and corrected in block: $block_id\tgap column length: $gap_len\n");
+			#print(STDERR "invalid gap found and corrected in block: $block_id\tgap column length: $gap_len\n");
 		}
 	}
 
