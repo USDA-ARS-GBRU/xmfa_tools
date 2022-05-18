@@ -2,11 +2,12 @@
 
 ### xmfa_tools.pl
 Description:
+	xmfa_tools.pl can be used to create GFA sequence graphs,
+	gapped fasta files and/or sorted multi-sequence alignments
+	from raw XMFA files. Additionally, invalid gaps (see
+    --nogapfilter option below) are also removed.
 
-    sort XMFA file by block (LCB) to generate gapped fasta
-    files with fasta/xmfa coordinates and/or vg-based gfa files
-
-    This is accomplished by defining a multi-pass sort using
+    Sorting is accomplished by defining a multi-pass sort using
     sequence IDs found in the XMFA header. The primary sort
     sequence ID is used to establish a backbone of blocks.
     Additional sorting passes recursively extend the backbone
@@ -105,71 +106,3 @@ Options:
   help:
 
      -h --help     display help menu
-
----
-
-### xmfa_graph_cov.pl
-
-Description:
-
-xmfa_tools.pl can be used to create GFA sequence graphs from XMFA multi-sequence alignments. These GFA graphs are then used for aligning short or long reads. xmfa_graph_cov.pl is used to report the coverage of segments/nodes belonging to each path in the graph as they relate to the original multi-sequence alignment.  xmfa_graph_cov.pl requires at least one chromosome multi-sequence alignment (XMFA) as well as the entire combined (genome) graph used for read mapping. In addition, a pack (coverage) table derived from GAM alignments to the given graph must also be supplied.  The output is an R data frame that can be used to plot relative coverage.
-
-Usage:
-
-    xmfa_graph_cov.pl [options] > graph.packs.cov
-
-Options:
-
-  general options:
-
-     -x --xmfa      xmfa file(s)
-                      ex: -x chr01.xmfa chr02.xmfa
-
-     --xmfalist     text file containing list of xmfa file paths
-                      1 xmfa file per line
-
-    1 or more xmfa files must be specified using -x/--xmfa and/or
-    --xmfalist. Multiple xmfa files are processed sequentially, so
-    it is more efficient to run multiple commands for multiple
-    chromosome genomes. (1 command for each chromosome) Output for
-    multiple chromosomes can be concatenated together, if desired.
-
-     -g --gfa       genome gfa file, vg-based (required)
-
-     --interval     xmfa sampling interval (sample coverage every
-                      X multiple alignment columns)
-                      defautl: 50
-
-     -e --edge      report node leading edge coverage (instead of node
-                      position coverage)
-                      default: disabled
-
-     -c --cov       minimum node coverage
-                      do not report nodes falling below threshold
-                      default: 0
-
-     -p --pack      vg pack table or segment coverage file(s)
-                      ex: -p sample1.pack.table sample2.seg.cov.gz
-
-     --packlist     text file containing list of pack file paths
-                      pack names (found in output header) may optionally
-                      be specified in the second field
-                      1 pack file (and name) per line, tab-delimited
-
-    1 or more pack (table or segment coverage) files must be specified using
-    -p/--pack and/or --packlist. Pack table files are generated using the
-    `vg pack -d` command. Pack segment coverage files are generated using
-    pack_table_to_seg_cov.pl, which is part of the gfa_var_genotyper
-    project. (https://github.com/brianabernathy/gfa_var_genotyper) Pack
-    files may be uncompressed or compressed using either gzip or bzip2. (.gz
-    or .bz2 file extension)
-
-    Note that pack names (found in output header) are automatically
-    extracted from pack file names by removing all trailing characters after
-    the first '.' or '_'. If you prefer to specify pack names, the
-    --packlist option must be used, with names appearing in the file's
-    second field.
-
-  help:
-
-     -h --help      display help menu
