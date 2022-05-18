@@ -1,7 +1,7 @@
 # xmfa_tools 
 
-### xmfa_tools.pl
 Description:
+
 	xmfa_tools.pl can be used to create GFA sequence graphs,
 	gapped fasta files and/or sorted multi-sequence alignments
 	from raw XMFA files. Additionally, invalid gaps (see
