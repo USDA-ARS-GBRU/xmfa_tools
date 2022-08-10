@@ -1,10 +1,12 @@
-# xmfa_tools 
+# xmfa_tools
+
+Test data sets, scripts and additional documentation specific to skim-seq processing are also available at the [PanPipes](https://github.com/USDA-ARS-GBRU/PanPipes#demos "PanPipes") repository.
 
 Description:
 
-	xmfa_tools.pl can be used to create GFA sequence graphs,
-	gapped fasta files and/or sorted multi-sequence alignments
-	from raw XMFA files. Additionally, invalid gaps (see
+    xmfa_tools.pl can be used to create GFA sequence graphs,
+    gapped fasta files and/or sorted multi-sequence alignments
+    from raw XMFA files. Additionally, invalid gaps (see
     --nogapfilter option below) are also removed.
 
     Sorting is accomplished by defining a multi-pass sort using
@@ -19,10 +21,6 @@ Description:
     sequence alignment of highest sort priority. When the
     highest sort priority sequence alignment is on the reverse
     strand, all block sequences are reverse complemented.
-    
-    Test data sets, scripts and additional documentation specific
-    to skim-seq processing are also available at the [PanPipes](https://github.com/USDA-ARS-GBRU/PanPipes#demos "PanPipes") repository.
-
 
 Usage:
 
