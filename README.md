@@ -19,6 +19,9 @@ Description:
     sequence alignment of highest sort priority. When the
     highest sort priority sequence alignment is on the reverse
     strand, all block sequences are reverse complemented.
+    
+    Test data sets, scripts and additional documentation specific
+    to skim-seq processing are also available at the [PanPipes](https://github.com/USDA-ARS-GBRU/PanPipes#demos "PanPipes") repository.
 
 
 Usage:
