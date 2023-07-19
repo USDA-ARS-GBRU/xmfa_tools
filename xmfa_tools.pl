@@ -28,6 +28,7 @@ my $vg_path;
 my $cat_gfa_paths;
 my $threads = 1;
 my $null_record = 'NA';
+my $wrap_len = 80;
 my $help;
 
 my %block_seq_order = ();
@@ -238,7 +239,7 @@ sub print_blocks {
 				my $wrapped_seq = $seq;
 
 				$wrapped_seq =~ s/[^acgtnACGTN-]/N/g;
-				$wrapped_seq =~ s/.{72}\K/\n/g;
+				$wrapped_seq =~ s/.{$wrap_len}\K/\n/g;
 
 				chomp($wrapped_seq);
 
@@ -284,7 +285,7 @@ sub print_blocks {
 				my $header = $block_seq_info{$block_id}{$seq_id}{'header'};
 				my $seq = $block_seqs{$block_id}{$seq_id};
 
-				$seq =~ s/.{72}\K/\n/g;
+				$seq =~ s/.{$wrap_len}\K/\n/g;
 
 				chomp($seq);
 
@@ -317,7 +318,7 @@ sub print_blocks {
 			my $fasta_fh = $seq_id_fasta_fhs{$seq_id};
 			my $wrapped_seq = $fasta_seq{$seq_id};
 
-			$wrapped_seq =~ s/.{72}\K/\n/g;
+			$wrapped_seq =~ s/.{$wrap_len}\K/\n/g;
 
 			chomp($wrapped_seq);
 
