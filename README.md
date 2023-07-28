@@ -80,9 +80,6 @@ Options:
      --xmfaout     output xmfa file (requires -s/--sort or
                      -i/--include)
 
-     --xmfasort    output sorted xmfa file
-                     deprecated: use --xmfaout with -s/--sort
-
      -g --gfa      output gfa file (vg-based, similar to v1 spec)
 
      --gfapostfix  include gfa seq postfix in gfa path records
@@ -91,10 +88,6 @@ Options:
 
      -v --vg       path to vg executable (required for gfa processing)
                      default: autodetect in $PATH (if available)
-
-     --catgfapaths concatenate gfa paths with the same gfa name
-                     default: output separate path records for each
-                     block
 
      -c --coords   output fasta coords file
                      specifying a fasta coords file will generate
