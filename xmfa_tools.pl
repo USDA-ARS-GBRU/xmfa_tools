@@ -19,13 +19,11 @@ my $fasta_dir = '.';
 my $fasta_postfix = '.sort.gapped.fa';
 my $fasta_linker;
 my $coords_file;
-my $sorted_xmfa_file;
 my $output_xmfa_file;
 my $gfa_file;
 my $use_seq_names = 1;
 my $gfa_postfix;
 my $vg_path;
-my $cat_gfa_paths;
 my $threads = 1;
 my $null_record = 'NA';
 my $wrap_len = 80;
@@ -41,6 +39,7 @@ my %block_seq_info = ();
 my @block_order = ();
 my %unplaced_blocks = ();
 my %seq_names = ();
+my %seq_id_files = ();
 my %seq_id_fasta_fhs = ();
 my %gfa_paths = ();
 my %gfa_path_blocks = ();
@@ -184,6 +183,15 @@ sub print_blocks {
 		}
 
 		mkdir($vg_tmp_dir);
+	}
+
+	# mauve viewer compatibility
+	if (defined($output_xmfa_file)) {
+		foreach my $seq_id (sort { $a <=> $b } keys %seq_id_files) {
+			print($output_xmfa_fh "> ${seq_id}:0-0 + $seq_id_files{$seq_id}\n-\n");
+		}
+
+		print($output_xmfa_fh "=\n");
 	}
 
 	foreach my $block_id (@block_order) {
@@ -350,14 +358,8 @@ sub print_blocks {
 				my $path_rec = $gfa_paths{$seq_id}{$start};
 				my ($rec_type, $header, $segs, $overlaps) = split(/\t/, $path_rec);
 
-				if (defined($cat_gfa_paths)) {
-					push(@segs, $segs);
-					push(@overlaps, $overlaps);
-				}
-
-				else {
-					print($gfa_fh "$path_rec\n");
-				}
+				push(@segs, $segs);
+				push(@overlaps, $overlaps);
 
 				my @segs = split(',', $segs);
 
@@ -385,15 +387,13 @@ sub print_blocks {
 				}
 			}
 
-			if (defined($cat_gfa_paths)) {
-				if (defined($gfa_overlap) && $gfa_overlap eq '*') {
-					undef(@overlaps);
+			if (defined($gfa_overlap) && $gfa_overlap eq '*') {
+				undef(@overlaps);
 
-					push(@overlaps, '*');
-				}
-
-				print($gfa_fh "P\t$seq_names{$seq_id}\t", join(',', @segs), "\t", join(',', @overlaps), "\n");
+				push(@overlaps, '*');
 			}
+
+			print($gfa_fh "P\t$seq_names{$seq_id}\t", join(',', @segs), "\t", join(',', @overlaps), "\n");
 		}
 
 		foreach my $vg_tmp_file (glob("$vg_tmp_dir/block*")) {
@@ -1110,6 +1110,7 @@ sub parse_xmfa_header {
 
 			$base_names{$base_name}++;
 			$seq_base_names{$seq_id} = $base_name;
+			$seq_id_files{$seq_id} = $header_val;
 
 			if (defined($print_seq_ids)) {
 				print(STDOUT "seq id: $seq_id\tname: $base_name\tfile: $header_val\n");
@@ -1209,12 +1210,10 @@ sub parse_args {
 				'fapostfix=s' => \$fasta_postfix,
 				'l|linker=s' => \$fasta_linker,
 				'c|coords=s' => \$coords_file,
-				'xmfasort=s' => \$sorted_xmfa_file,
 				'xmfaout=s' => \$output_xmfa_file,
 				'g|gfa=s' => \$gfa_file,
 				'gfapostfix=s' => \$gfa_postfix,
 				'v|vg=s' => \$vg_path,
-				'catgfapaths' => \$cat_gfa_paths,
 				't|threads=i' => \$threads,
 				'n|null=s' => \$null_record,
 				'h|help' => \$help) or error('cannot parse arguments');
@@ -1229,17 +1228,6 @@ sub parse_args {
 
 	if (! defined($print_seq_ids) && ! defined($output_xmfa_file) && ! defined($gfa_file) && ! defined($coords_file)) {
 		arg_error('at least one output file must be specified');
-	}
-
-	if (defined($sorted_xmfa_file)) {
-		print(STDERR "--xmfasort deprecated: use --xmfaout with -s/--sort\n");
-
-		if (defined($output_xmfa_file) && $sorted_xmfa_file ne $output_xmfa_file) {
-			arg_error("sorted xmfa file: $sorted_xmfa_file is different from output xmfa file: $output_xmfa_file, writing output xmfa to: $output_xmfa_file");
-		}
-
-		$output_xmfa_file = $sorted_xmfa_file;
-		$enable_sort = 1;
 	}
 
 	if (defined($output_xmfa_file)) {
@@ -1351,9 +1339,6 @@ Brian Abernathy
  --xmfaout     output xmfa file (requires -s/--sort or
                  -i/--include)
 
- --xmfasort    output sorted xmfa file
-                 deprecated: use --xmfaout with -s/--sort
-
  -g --gfa      output gfa file (vg-based, similar to v1 spec)
 
  --gfapostfix  include gfa seq postfix in gfa path records
@@ -1362,10 +1347,6 @@ Brian Abernathy
 
  -v --vg       path to vg executable (required for gfa processing)
                  default: autodetect in $PATH (if available)
-
- --catgfapaths concatenate gfa paths with the same gfa name
-                 default: output separate path records for each
-                 block
 
  -c --coords   output fasta coords file
                  specifying a fasta coords file will generate
